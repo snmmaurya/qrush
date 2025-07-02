@@ -4,7 +4,7 @@ use std::sync::{Arc, OnceLock};
 use crate::runner::{start_worker_pool, start_delayed_worker_pool};
 use anyhow::{anyhow, Result};
 use tokio::sync::Notify;
-use tracing::{info, error, debug};
+use tracing::info;
 
 
 #[derive(Clone, Debug)]

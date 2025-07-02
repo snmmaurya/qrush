@@ -1,6 +1,4 @@
 // src/dashboard/metrics.rs
-use actix_web::web;
-use actix_web::Responder;
 use crate::config::get_global_queues;
 use crate::redis_pool::get_redis_conn;
 use redis::AsyncCommands;
@@ -8,7 +6,6 @@ use std::collections::HashMap;
 use tera::{Context, Tera};
 use anyhow::{Result, Context as AnyhowContext};
 use lazy_static::lazy_static;
-use serde::Deserialize;
 use serde_json::{json, Value};
 
 lazy_static! {
@@ -28,10 +25,6 @@ lazy_static! {
 
 const PAGE_SIZE: usize = 10;
 
-#[derive(Deserialize)]
-struct DelayedJobMeta {
-    queue: String,
-}
 
 /// Render Main Metrics Page
 pub async fn render_metrics(page: usize) -> Result<(String, usize, bool)> {

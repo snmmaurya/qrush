@@ -1,6 +1,6 @@
 // src/services/metrics_service.rs
 
-use actix_web::{post, HttpRequest, HttpResponse, Responder, web};
+use actix_web::{HttpRequest, HttpResponse, Responder, web};
 use serde::Deserialize;
 use crate::basic_auth::{check_basic_auth, unauthorized_response};
 use crate::redis_pool::get_redis_conn;
@@ -12,12 +12,6 @@ use crate::config::get_basic_auth;
 #[derive(Deserialize)]
 pub struct MetricsParams {
     page: Option<usize>,
-}
-
-
-#[derive(Deserialize)]
-pub struct RetryParams {
-    queue: String,
 }
 
 

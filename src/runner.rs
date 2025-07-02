@@ -1,50 +1,14 @@
 // src/runner.rs
 
 use crate::{registry::get_registered_jobs, redis_pool::get_redis_conn};
-use crate::config::QueueConfig;
 use tokio::time::{sleep, Duration};
 use redis::AsyncCommands;
-use tracing::{info, error, debug};
-
-
-// pub async fn start_worker_pool(queue: &str, concurrency: usize) {
-//     for i in 0..concurrency {
-//         let queue = queue.to_string();
-//         tokio::spawn(async move {
-//             loop {
-//                 let mut conn = match get_redis_conn().await {
-//                     Ok(c) => c,
-//                     Err(_) => {
-//                         sleep(Duration::from_secs(1)).await;
-//                         continue;
-//                     }
-//                 };
-
-//                 let payload: Option<String> = conn.lpop(format!("snm:queue:{}", queue), None).await.unwrap_or(None);
-//                 if let Some(job_json) = payload.clone() {
-
-//                     println!("payload: {:?}", payload);
-
-//                     let jobs = get_registered_jobs();
-//                     for (name, handler) in jobs {
-//                         let fut = handler(job_json.clone());
-//                         if fut.await.is_ok() {
-//                             break;
-//                         }
-//                     }
-//                 }
-
-//                 sleep(Duration::from_millis(500)).await;
-//             }
-//         });
-//     }
-// }
-
-
 use chrono::Utc;
 
+
+
 pub async fn start_worker_pool(queue: &str, concurrency: usize) {
-    for i in 0..concurrency {
+    for _i in 0..concurrency {
         let queue = queue.to_string();
         tokio::spawn(async move {
             loop {
@@ -95,7 +59,7 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
 
                                 break;
                             }
-                            Err(e) => {
+                            Err(_) => {
                                 // continue to next handler
                             }
                         }
