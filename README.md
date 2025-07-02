@@ -21,7 +21,7 @@ Qrush is a lightweight background job queue system for Rust, designed for Actix-
 Add this to your `Cargo.toml`:
 
 ```toml
-qrush = "0.1.0"
+qrush = "0.1.2"
 ```
 
 Or use:
@@ -204,7 +204,7 @@ http://localhost:8080/qrush/metrics
 
 ## 👨‍💼 Author
 
-Developed with ❤️ by **SNM Maurya**
+Developed with ❤️ by **SNM Maurya** https://snmmaurya.com/solutions/qrush
 
 ---
 
