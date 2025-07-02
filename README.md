@@ -195,11 +195,10 @@ http://localhost:8080/qrush/metrics
 
 ## 💪 TODOs / Future Plans
 
-* ✅ Retry logic and exponential backoff
-* 🔄 Retryable job trait
+
 * 💀 Dead letter queues
 * 📜 Persistent job logs
-* 🌐 Web UI for monitoring
+* 🌐 Web UI Enhancement for monitoring
 
 ---
 
