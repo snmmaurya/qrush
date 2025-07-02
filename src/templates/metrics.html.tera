@@ -10,7 +10,7 @@
         html, body {
             margin: 0;
             padding: 0;
-            min-height: 100%;
+            height: 100%;
             font-family: Arial, sans-serif;
             background: #f4f4f4;
             display: flex;
@@ -23,6 +23,17 @@
         h1 {
             color: #333;
             text-align: center;
+        }
+        .footer {
+            background: #111;
+            color: white;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .footer a {
+            color: #00bfff;
+            text-decoration: none;
         }
         .controls {
             margin: 20px 0;
@@ -109,6 +120,59 @@
         .job-actions {
             margin-top: 10px;
         }
+        .toast-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #323232;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-size: 14px;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+            opacity: 0.95;
+            transition: opacity 0.3s ease;
+        }
+
+        .toast-message.success {
+            background-color: #4CAF50;
+        }
+
+        .toast-message.error {
+            background-color: #f44336;
+        }
+
+        .pagination {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            font-family: sans-serif;
+        }
+
+        .page-btn {
+            background-color: #212121;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .page-btn:hover {
+            background-color: #333;
+        }
+
+        .page-number {
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            background-color: #333;
+            border: 1px solid #333;
+        }
 
         @media (max-width: 768px) {
             .controls {
@@ -155,15 +219,13 @@
     </style>
     <meta http-equiv="refresh" content="30">
 </head>
-<body>
+    <body>
     <main>
         <h1>Qrush Metrics</h1>
 
         <div class="controls">
             <div class="gapping" style="display: flex; align-items: center;">
-                <form method="get" action="/qrush" style="margin: 0;">
-                    <button class="btn" type="submit">Refresh</button>
-                </form>
+                <button class="btn" onclick="loadMetrics()">Refresh</button>
 
                 <div class="gapping" style="display: flex;">
                     <div class="status-box status-success">Success: <strong>{{ stats.success }}</strong></div>
@@ -171,13 +233,15 @@
                 </div>
             </div>
 
-            <div class="controls" style="margin-top: 20px;">
+            <div class="pagination">
                 {% if page > 1 %}
-                <a class="btn" href="/qrush/metrics?page={{ page - 1 }}">Prev</a>
+                <button class="page-btn" onclick="loadPage({{ page - 1 }})">Prev</button>
                 {% endif %}
-                <span>Page {{ page }}</span>
+
+                <span class="page-number">Page {{ page }}</span>
+
                 {% if has_more %}
-                <a class="btn" href="/qrush/metrics?page={{ page + 1 }}">Next</a>
+                <button class="page-btn" onclick="loadPage({{ page + 1 }})">Next</button>
                 {% endif %}
             </div>
         </div>
@@ -198,9 +262,7 @@
                 {% for q in queues %}
                 <tr>
                     <td data-label="Queue">
-                        <span class="queue-name" onclick="toggleJobDetails('{{ q.name }}')">
-                            {{ q.name }}
-                        </span>
+                        <span class="queue-name" onclick="loadQueueJobs('{{ q.name }}')">{{ q.name }}</span>
                     </td>
                     <td data-label="Concurrency">{{ q.concurrency }}</td>
                     <td data-label="Priority">{{ q.priority }}</td>
@@ -212,11 +274,80 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- This is where queue jobs will be dynamically loaded -->
+        <div id="job-details-container" style="margin-top: 40px;"></div>
     </main>
 
     <div class="footer">
         Powered by <a href="http://snmmaurya.com/solutions/qrush" target="_blank">SnmMaurya</a>
     </div>
 
-</body>
+    <script>
+    async function loadQueueJobs(queueName) {
+        const container = document.getElementById("job-details-container");
+        container.innerHTML = "<p><strong>Loading jobs for queue:</strong> " + queueName + "</p>";
+
+        try {
+            const res = await fetch("/qrush/queue/" + queueName);
+            const html = await res.text();
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = `<p style="color:red;">Failed to load jobs: ${err.message}</p>`;
+        }
+    }
+
+    async function performJobAction(jobId, queue, action) {
+        const confirmed = confirm(`Are you sure you want to ${action} job ${jobId}?`);
+        if (!confirmed) return;
+
+        const body = new URLSearchParams();
+        body.append("job_id", jobId);
+        body.append("queue", queue);
+        body.append("action", action);
+
+        try {
+            const res = await fetch("/qrush/job_action", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: body,
+            });
+
+            const text = await res.text();
+
+            if (res.ok) {
+                showToast(text, "success");
+                loadQueueJobs(queue);
+            } else {
+                showToast("Error: " + text, "error");
+            }
+        } catch (err) {
+            showToast("Failed: " + err.message, "error");
+        }
+    }
+
+    function showToast(message, type = "success") {
+        const toast = document.createElement("div");
+        toast.className = `toast-message ${type}`;
+        toast.innerText = message;
+
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+
+    function loadPage(page) {
+        window.location.href = `/qrush/metrics?page=${page}`;
+    }
+
+    function loadMetrics() {
+        window.location.href = `/qrush/metrics`;
+    }
+    </script>
+    </body>
 </html>
