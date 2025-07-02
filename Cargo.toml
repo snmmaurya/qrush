@@ -15,7 +15,7 @@ homepage = "https://github.com/snmmaurya/qrush"
 
 [dependencies]
 actix-web = "4.0"
-redis = { version = "0.25", features = ["tokio-comp"] }
+redis = { version = "0.25", features = ["tokio-native-tls-comp"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
