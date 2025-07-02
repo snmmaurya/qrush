@@ -75,3 +75,25 @@ pub fn set_redis_url(url: String) -> Result<()> {
         .set(url)
         .map_err(|_| anyhow!("Redis URL already set"))
 }
+
+
+
+
+
+
+
+#[derive(Debug, Clone)]
+pub struct QrushBasicAuthConfig {
+    pub username: String,
+    pub password: String,
+}
+
+pub static QRUSH_BASIC_AUTH: OnceLock<Option<QrushBasicAuthConfig>> = OnceLock::new();
+
+pub fn set_basic_auth(auth: Option<QrushBasicAuthConfig>) {
+    let _ = QRUSH_BASIC_AUTH.set(auth);
+}
+
+pub fn get_basic_auth() -> Option<&'static QrushBasicAuthConfig> {
+    QRUSH_BASIC_AUTH.get().and_then(|opt| opt.as_ref())
+}

@@ -4,3 +4,7 @@ pub mod queue;
 pub mod config;
 pub mod registry;
 pub mod runner;
+pub mod routes;
+pub mod dashboard;
+pub mod basic_auth;
+pub mod services;

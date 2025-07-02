@@ -1,9 +1,20 @@
 [package]
-name = "snm-queue"
+name = "qrush"
 version = "0.1.0"
 edition = "2021"
+authors = ["SNM Maurya <your_email@example.com>"]
+description = "Lightweight Job Queue for Rust (Actix + Redis)"
+license = "MIT"
+repository = "https://github.com/yourusername/qrush"
+documentation = "https://docs.rs/qrush"
+readme = "README.md"
+keywords = ["actix", "redis", "job-queue", "background-jobs"]
+categories = ["asynchronous", "web-programming", "concurrency"]
+homepage = "https://github.com/snmmaurya/qrush"
+
 
 [dependencies]
+actix-web = "4.0"
 redis = { version = "0.25", features = ["tokio-comp"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
@@ -14,6 +25,10 @@ once_cell = "1.18"
 futures = "0.3"
 tracing = "0.1"
 chrono = "0.4.41"
+tera = "1.19"
+lazy_static = "1.4"
+base64 = "0.22.1"
+nanoid = "0.4"
 
 [lib]
 path = "src/lib.rs"
