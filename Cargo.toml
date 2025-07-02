@@ -2,10 +2,10 @@
 name = "qrush"
 version = "0.1.0"
 edition = "2021"
-authors = ["SNM Maurya <your_email@example.com>"]
+authors = ["SNM Maurya <inxmaurya@gmail.com>"]
 description = "Lightweight Job Queue for Rust (Actix + Redis)"
 license = "MIT"
-repository = "https://github.com/yourusername/qrush"
+repository = "https://github.com/snmmaurya/qrush"
 documentation = "https://docs.rs/qrush"
 readme = "README.md"
 keywords = ["actix", "redis", "job-queue", "background-jobs"]
