@@ -5,6 +5,7 @@ use crate::runner::{start_worker_pool, start_delayed_worker_pool};
 use anyhow::{anyhow, Result};
 use tokio::sync::Notify;
 use tracing::info;
+use redis::{aio::MultiplexedConnection, Client};
 
 
 #[derive(Clone, Debug)]
@@ -20,6 +21,15 @@ pub static QUEUE_INITIALIZED: OnceLock<Arc<Notify>> = OnceLock::new();
 pub static REDIS_URL: OnceLock<String> = OnceLock::new();
 // Store global queues
 pub static GLOBAL_QUEUES: OnceLock<Vec<QueueConfig>> = OnceLock::new();
+
+
+
+pub static QRUSH_SHUTDOWN: OnceLock<Arc<Notify>> = OnceLock::new();
+
+pub fn get_shutdown_notify() -> Arc<Notify> {
+    QRUSH_SHUTDOWN.get_or_init(|| Arc::new(Notify::new())).clone()
+}
+
 
 
 impl QueueConfig {
@@ -81,9 +91,6 @@ pub fn set_redis_url(url: String) -> Result<()> {
 
 
 
-
-
-
 #[derive(Debug, Clone)]
 pub struct QrushBasicAuthConfig {
     pub username: String,
@@ -98,4 +105,16 @@ pub fn set_basic_auth(auth: Option<QrushBasicAuthConfig>) {
 
 pub fn get_basic_auth() -> Option<&'static QrushBasicAuthConfig> {
     QRUSH_BASIC_AUTH.get().and_then(|opt| opt.as_ref())
+}
+
+
+
+
+
+pub async fn get_redis_conn() -> redis::RedisResult<MultiplexedConnection> {
+    let redis_url = get_redis_url();
+
+    // Client::open will auto-handle rediss:// if TLS feature is enabled
+    let client = Client::open(redis_url)?;
+    client.get_multiplexed_async_connection().await
 }

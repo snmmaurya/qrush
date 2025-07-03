@@ -1,10 +1,11 @@
 pub mod job;
-pub mod redis_pool;
+pub mod rdconfig;
 pub mod queue;
 pub mod config;
 pub mod registry;
 pub mod runner;
 pub mod routes;
-pub mod dashboard;
 pub mod basic_auth;
 pub mod services;
+pub mod job_metadata;
+pub mod constants;
