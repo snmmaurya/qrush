@@ -16,9 +16,10 @@ pub fn qrush_metrics_routes(cfg: &mut web::ServiceConfig) {
             }))
             .route("/metrics", web::get().to(render_metrics))
             .route("/metrics/{queue}", web::get().to(render_metrics_for_queue))
+            .route("/queue/{queue}", web::get().to(render_metrics))
             .route("/queue/{queue}/export", web::get().to(export_queue_csv))
             .route("/summary", web::get().to(get_metrics_summary))
             .route("/job/action", web::post().to(job_action))
-            .route("/job/retry", web::post().to(retry_job)) // ✅ removed duplicate
+            .route("/job/retry", web::post().to(retry_job))
     );
 }

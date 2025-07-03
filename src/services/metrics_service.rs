@@ -7,12 +7,24 @@ use redis::AsyncCommands;
 use lazy_static::lazy_static;
 use csv::WriterBuilder;
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use chrono::Utc;
 use serde::Serialize;
+use anyhow::{Result, Context as AnyhowContext};
 
 use crate::rdconfig::get_redis_conn;
 use crate::constants::DELAYED_JOBS_KEY;
+
+#[derive(Serialize)]
+struct QueueInfo {
+    name: String,
+    concurrency: i32,
+    priority: i32,
+    pending_jobs: i64,
+    delayed_jobs: i64,
+    success_jobs: i64,
+    failed_jobs: i64,
+}
 
 lazy_static! {
     pub static ref TEMPLATES: Tera = {
@@ -26,74 +38,140 @@ lazy_static! {
     };
 }
 
-pub async fn render_metrics() -> impl Responder {
-    let mut conn = match get_redis_conn().await {
-        Ok(c) => c,
-        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
-    };
 
-    let success: i64 = conn.get("snm:qrush:success").await.unwrap_or(0);
-    let failed: i64 = conn.get("snm:qrush:failed").await.unwrap_or(0);
-    let retried = failed - success;
-    let delayed: i64 = conn.zcard(DELAYED_JOBS_KEY).await.unwrap_or(0);
-    let queued: i64 = conn.llen("snm:queue:default").await.unwrap_or(0);
 
-    let keys: Vec<String> = conn.keys::<&str, Vec<String>>("snm:queue:*").await.unwrap_or_default();
-    let all_queues: Vec<String> = keys.iter()
-        .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
-        .collect();
-
-    let selected_queue = "default".to_string();
-    let job_ids: Vec<String> = conn.lrange("snm:queue:default", 0, 50).await.unwrap_or_default();
-
-    let mut jobs = Vec::new();
-    for job_id in &job_ids {
-        let job_key = format!("snm:job:{job_id}");
-        let meta: redis::RedisResult<HashMap<String, String>> = conn.hgetall(&job_key).await;
-        if let Ok(m) = meta {
-            jobs.push((job_id.clone(), m));
-        }
-    }
-
-    let mut ctx = Context::new();
-    ctx.insert("success", &success);
-    ctx.insert("failed", &failed);
-    ctx.insert("retried", &retried);
-    ctx.insert("delayed", &delayed);
-    ctx.insert("queued", &queued);
-    ctx.insert("selected_queue", &selected_queue);
-    ctx.insert("queues", &all_queues);
-    ctx.insert("jobs", &jobs);
-
-    match TEMPLATES.render("metrics.html.tera", &ctx) {
-        Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Template error: {}", e)),
-    }
-}
-
-pub async fn render_metrics_for_queue(path: web::Path<String>) -> impl Responder {
+pub async fn render_metrics(path: web::Path<String>) -> impl Responder {
     let queue = path.into_inner();
     let mut conn = match get_redis_conn().await {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
 
+    // Fetch job IDs from queue
     let job_ids: Vec<String> = conn
         .lrange(format!("snm:queue:{queue}"), 0, 50)
+        .await
+        .unwrap_or_default();
+
+    // Fetch job metadata
+    let mut jobs = Vec::new();
+    for job_id in &job_ids {
+        let job_key = format!("snm:job:{job_id}");
+        if let Ok(meta) = conn.hgetall::<_, HashMap<String, String>>(&job_key).await {
+            jobs.push((job_id.clone(), meta));
+        }
+    }
+
+    // Fetch all available queues
+    let keys: Vec<String> = conn
+        .keys::<&str, Vec<String>>("snm:queue:*")
+        .await
+        .unwrap_or_default();
+    let all_queues: Vec<String> = keys
+        .iter()
+        .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
+        .collect();
+
+    // Required metrics
+    let success: i64 = conn.get("snm:qrush:success").await.unwrap_or(0);
+    let failed: i64 = conn.get("snm:qrush:failed").await.unwrap_or(0);
+    let retried = failed - success;
+    let delayed: i64 = conn.zcard(DELAYED_JOBS_KEY).await.unwrap_or(0);
+    let queued: i64 = conn
+        .llen(format!("snm:queue:{queue}"))
+        .await
+        .unwrap_or(0);
+
+    // Build template context
+    let mut ctx = Context::new();
+    ctx.insert("success", &success);
+    ctx.insert("failed", &failed);
+    ctx.insert("retried", &retried);
+    ctx.insert("delayed", &delayed);
+    ctx.insert("queued", &queued);
+    ctx.insert("selected_queue", &queue);
+    ctx.insert("queues", &all_queues);
+    ctx.insert("jobs", &jobs);
+
+    let mut stats = HashMap::new();
+    stats.insert("success", Value::from(success));
+    stats.insert("failed", Value::from(failed));
+    ctx.insert("stats", &stats);
+
+    // In render_metrics function:
+    let mut queues_info = Vec::new();
+    for queue_name in &all_queues {
+        let queue_info = QueueInfo {
+            name: queue_name.clone(),
+            concurrency: 1, // Get from config
+            priority: 0,    // Get from config
+            pending_jobs: conn.llen(format!("snm:queue:{}", queue_name)).await.unwrap_or(0),
+            delayed_jobs: 0, // Calculate from delayed jobs
+            success_jobs: 0, // Count from job statuses
+            failed_jobs: 0,  // Count from job statuses
+        };
+        queues_info.push(queue_info);
+    }
+    ctx.insert("queues", &queues_info);
+
+    // Render template
+    match TEMPLATES.render("metrics.html.tera", &ctx) {
+        Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
+        Err(e) => HttpResponse::InternalServerError().body(format!("Template error: {}", e)),
+    }
+}
+
+
+
+
+
+#[derive(serde::Deserialize)]
+pub struct MetricsQuery {
+    page: Option<usize>,
+}
+
+pub async fn render_metrics_for_queue(
+    path: web::Path<String>,
+    query: web::Query<MetricsQuery>,
+) -> impl Responder {
+    let queue = path.into_inner();
+    let page = query.page.unwrap_or(1).max(1); // default to 1
+    let page_size = 20;
+    let start = (page - 1) * page_size;
+    let end = start + page_size - 1;
+
+    let mut conn = match get_redis_conn().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+    };
+
+    // Get total job count for pagination
+    let total_jobs: usize = conn
+        .llen(format!("snm:queue:{queue}"))
+        .await
+        .unwrap_or(0);
+
+    let total_pages = (total_jobs + page_size - 1) / page_size;
+
+    let job_ids: Vec<String> = conn
+        .lrange(format!("snm:queue:{queue}"), start as isize, end as isize)
         .await
         .unwrap_or_default();
 
     let mut jobs = Vec::new();
     for job_id in &job_ids {
         let job_key = format!("snm:job:{job_id}");
-        let meta: redis::RedisResult<HashMap<String, String>> = conn.hgetall(&job_key).await;
-        if let Ok(m) = meta {
-            jobs.push((job_id.clone(), m));
+        if let Ok(meta) = conn.hgetall::<_, HashMap<String, String>>(&job_key).await {
+            jobs.push((job_id.clone(), meta));
         }
     }
 
-    let keys: Vec<String> = conn.keys::<&str, Vec<String>>("snm:queue:*").await.unwrap_or_default();
-    let all_queues: Vec<String> = keys.iter()
+    let keys: Vec<String> = conn
+        .keys::<&str, Vec<String>>("snm:queue:*")
+        .await
+        .unwrap_or_default();
+    let all_queues: Vec<String> = keys
+        .iter()
         .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
         .collect();
 
@@ -101,6 +179,12 @@ pub async fn render_metrics_for_queue(path: web::Path<String>) -> impl Responder
     ctx.insert("selected_queue", &queue);
     ctx.insert("queues", &all_queues);
     ctx.insert("jobs", &jobs);
+    ctx.insert("current_page", &page);
+    ctx.insert("total_pages", &total_pages);
+    ctx.insert("page_size", &page_size);
+    ctx.insert("total_jobs", &total_jobs);
+
+
 
     match TEMPLATES.render("metrics.html.tera", &ctx) {
         Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
@@ -108,10 +192,15 @@ pub async fn render_metrics_for_queue(path: web::Path<String>) -> impl Responder
     }
 }
 
+
+
+
+
 #[derive(Deserialize)]
 pub struct JobAction {
     pub job_id: String,
-    pub action: String, // "run" or "delete"
+    pub queue: String,    // Add this field
+    pub action: String,
 }
 
 pub async fn job_action(form: web::Form<JobAction>) -> impl Responder {
