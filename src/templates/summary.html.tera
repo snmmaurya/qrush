@@ -1,0 +1,74 @@
+{% extends "layout.html.tera" %}
+
+{% block title %}Dashboard Summary{% endblock title %}
+
+{% block content %}
+  <div class="space-y-6">
+
+    <!-- Top Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white rounded shadow p-4">
+        <h3 class="text-gray-500 text-sm">Total Jobs</h3>
+        <p class="text-2xl font-semibold text-blue-600">{{ stats.total_jobs }}</p>
+      </div>
+
+      <div class="bg-white rounded shadow p-4">
+        <h3 class="text-gray-500 text-sm">Failed Jobs</h3>
+        <p class="text-2xl font-semibold text-red-600">{{ stats.failed_jobs }}</p>
+      </div>
+
+      <div class="bg-white rounded shadow p-4">
+        <h3 class="text-gray-500 text-sm">Scheduled Jobs</h3>
+        <p class="text-2xl font-semibold text-yellow-600">{{ stats.scheduled_jobs }}</p>
+      </div>
+
+      <div class="bg-white rounded shadow p-4">
+        <h3 class="text-gray-500 text-sm">Active Workers</h3>
+        <p class="text-2xl font-semibold text-green-600">{{ stats.active_workers }}</p>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="bg-white rounded shadow p-4">
+      <h2 class="text-lg font-semibold mb-4">Jobs Processed (Last 7 Days)</h2>
+      <canvas id="jobChart" height="100"></canvas>
+    </div>
+  </div>
+
+  <!-- Auto-refresh every 60s -->
+  <script>
+    setTimeout(() => location.reload(), 60000);
+  </script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const ctx = document.getElementById('jobChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: {{ chart.labels | json_encode() | safe }},
+        datasets: [{
+          label: 'Jobs',
+          data: {{ chart.data | json_encode() | safe }},
+          backgroundColor: '#3B82F6'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            }
+          }
+        }
+      }
+    });
+  </script>
+{% endblock content %}

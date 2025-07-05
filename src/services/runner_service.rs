@@ -1,13 +1,13 @@
 
-use crate::{registry::get_registered_jobs, rdconfig::get_redis_conn, config::get_shutdown_notify};
+use crate::{registry::get_registered_jobs, config::get_shutdown_notify};
+use crate::utils::rdconfig::get_redis_connection;
 use tokio::time::{sleep, Duration};
 use redis::AsyncCommands;
 use chrono::Utc;
 use futures::FutureExt; // Required for `.now_or_never()`
-use futures::future::err;
+use crate::utils::constants::{DELAYED_JOBS_KEY, MAX_RETRIES};
 
-const MAX_RETRIES: usize = 3;
-const DELAYED_JOBS_KEY: &str = "snm:delayed_jobs";
+
 
 pub async fn start_worker_pool(queue: &str, concurrency: usize) {
     let shutdown = get_shutdown_notify();
@@ -22,7 +22,7 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                     break;
                 }
 
-                let mut conn = match get_redis_conn().await {
+                let mut conn = match get_redis_connection().await {
                     Ok(c) => c,
                     Err(_) => {
                         sleep(Duration::from_secs(1)).await;
@@ -42,11 +42,11 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                     let jobs = get_registered_jobs();
                     let mut handled = false;
 
-                    for (job_name, handler) in &jobs {
+                    for (_job_name, handler) in &jobs {
                         let job_result = handler(job_payload.clone()).await;
 
                         match job_result {
-                            Ok(mut job) => {
+                            Ok(job) => {
                                 if let Err(_) = job.before().await {
                                     // Skip job execution but still mark it
                                     let _: () = conn.hset_multiple(&job_key, &[
@@ -125,7 +125,7 @@ pub async fn start_delayed_worker_pool() {
     tokio::spawn(async move {
         loop {
             let now = chrono::Utc::now().timestamp();
-            let mut conn = match get_redis_conn().await {
+            let mut conn = match get_redis_connection().await {
                 Ok(c) => c,
                 Err(_) => {
                     tokio::time::sleep(Duration::from_secs(1)).await;

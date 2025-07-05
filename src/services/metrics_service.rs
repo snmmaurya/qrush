@@ -1,358 +1,236 @@
-// src/services/metrics_service.rs
-use std::collections::HashMap;
-use actix_web::{web, HttpResponse, Responder, http::header::ContentDisposition};
-use actix_web::web::Data;
-use tera::{Context, Tera};
+use actix_web::{web, HttpResponse, Responder};
+use tera::Context;
 use redis::AsyncCommands;
-use lazy_static::lazy_static;
-use csv::WriterBuilder;
-use serde::Deserialize;
-use serde_json::{json, Value};
 use chrono::Utc;
-use serde::Serialize;
-use anyhow::{Result, Context as AnyhowContext};
+use serde_json::json;
 
-use crate::rdconfig::get_redis_conn;
-use crate::constants::DELAYED_JOBS_KEY;
+use crate::utils::rdconfig::get_redis_connection;
+use crate::services::template_service::render_template;
+use crate::utils::pagination::{Pagination, PaginationQuery};
+use crate::utils::constants::{DEFAULT_PAGE, DEFAULT_LIMIT};
+use crate::utils::jconfig::{deserialize_job, to_job_info, JobInfo, fetch_job_info};
+use crate::utils::renderer::paginate_jobs;
 
-#[derive(Serialize)]
-struct QueueInfo {
-    name: String,
-    concurrency: i32,
-    priority: i32,
-    pending_jobs: i64,
-    delayed_jobs: i64,
-    success_jobs: i64,
-    failed_jobs: i64,
-}
-
-lazy_static! {
-    pub static ref TEMPLATES: Tera = {
-        let mut tera = Tera::default();
-
-        tera.add_raw_template("metrics.html.tera", include_str!("../templates/metrics.html.tera"))
-            .expect("Failed to add metrics.html.tera");
-
-        println!("Tera templates embedded at compile-time");
-        tera
-    };
-}
-
-
-
-pub async fn render_metrics(path: web::Path<String>) -> impl Responder {
-    let queue = path.into_inner();
-    let mut conn = match get_redis_conn().await {
+pub async fn render_metrics() -> impl Responder {
+    let mut conn = match get_redis_connection().await {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
+    let queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
 
-    // Fetch job IDs from queue
-    let job_ids: Vec<String> = conn
-        .lrange(format!("snm:queue:{queue}"), 0, 50)
-        .await
-        .unwrap_or_default();
-
-    // Fetch job metadata
-    let mut jobs = Vec::new();
-    for job_id in &job_ids {
-        let job_key = format!("snm:job:{job_id}");
-        if let Ok(meta) = conn.hgetall::<_, HashMap<String, String>>(&job_key).await {
-            jobs.push((job_id.clone(), meta));
-        }
-    }
-
-    // Fetch all available queues
-    let keys: Vec<String> = conn
-        .keys::<&str, Vec<String>>("snm:queue:*")
-        .await
-        .unwrap_or_default();
-    let all_queues: Vec<String> = keys
-        .iter()
-        .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
-        .collect();
-
-    // Required metrics
-    let success: i64 = conn.get("snm:qrush:success").await.unwrap_or(0);
-    let failed: i64 = conn.get("snm:qrush:failed").await.unwrap_or(0);
-    let retried = failed - success;
-    let delayed: i64 = conn.zcard(DELAYED_JOBS_KEY).await.unwrap_or(0);
-    let queued: i64 = conn
-        .llen(format!("snm:queue:{queue}"))
-        .await
-        .unwrap_or(0);
-
-    // Build template context
     let mut ctx = Context::new();
-    ctx.insert("success", &success);
-    ctx.insert("failed", &failed);
-    ctx.insert("retried", &retried);
-    ctx.insert("delayed", &delayed);
-    ctx.insert("queued", &queued);
-    ctx.insert("selected_queue", &queue);
-    ctx.insert("queues", &all_queues);
-    ctx.insert("jobs", &jobs);
-
-    let mut stats = HashMap::new();
-    stats.insert("success", Value::from(success));
-    stats.insert("failed", Value::from(failed));
-    ctx.insert("stats", &stats);
-
-    // In render_metrics function:
-    let mut queues_info = Vec::new();
-    for queue_name in &all_queues {
-        let queue_info = QueueInfo {
-            name: queue_name.clone(),
-            concurrency: 1, // Get from config
-            priority: 0,    // Get from config
-            pending_jobs: conn.llen(format!("snm:queue:{}", queue_name)).await.unwrap_or(0),
-            delayed_jobs: 0, // Calculate from delayed jobs
-            success_jobs: 0, // Count from job statuses
-            failed_jobs: 0,  // Count from job statuses
-        };
-        queues_info.push(queue_info);
-    }
-    ctx.insert("queues", &queues_info);
-
-    // Render template
-    match TEMPLATES.render("metrics.html.tera", &ctx) {
-        Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Template error: {}", e)),
-    }
-}
-
-
-
-
-
-#[derive(serde::Deserialize)]
-pub struct MetricsQuery {
-    page: Option<usize>,
+    ctx.insert("title", "All Queues");
+    ctx.insert("queues", &queues);
+    render_template("metrics.html.tera", ctx).await
 }
 
 pub async fn render_metrics_for_queue(
     path: web::Path<String>,
-    query: web::Query<MetricsQuery>,
+    query: web::Query<PaginationQuery>,
 ) -> impl Responder {
     let queue = path.into_inner();
-    let page = query.page.unwrap_or(1).max(1); // default to 1
-    let page_size = 20;
-    let start = (page - 1) * page_size;
-    let end = start + page_size - 1;
 
-    let mut conn = match get_redis_conn().await {
+    let mut conn = match get_redis_connection().await {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
 
-    // Get total job count for pagination
-    let total_jobs: usize = conn
-        .llen(format!("snm:queue:{queue}"))
-        .await
-        .unwrap_or(0);
+    let key = format!("snm:queue:{}", queue);
+    let all_jobs: Vec<String> = conn.lrange(&key, 0, -1).await.unwrap_or_default();
 
-    let total_pages = (total_jobs + page_size - 1) / page_size;
+    let page = query.page.unwrap_or(DEFAULT_PAGE);
+    let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
+    let (job_ids, pagination) = paginate_jobs(all_jobs, page, limit).await;
 
-    let job_ids: Vec<String> = conn
-        .lrange(format!("snm:queue:{queue}"), start as isize, end as isize)
-        .await
-        .unwrap_or_default();
+    let mut job_infos: Vec<JobInfo> = Vec::new();
 
-    let mut jobs = Vec::new();
-    for job_id in &job_ids {
-        let job_key = format!("snm:job:{job_id}");
-        if let Ok(meta) = conn.hgetall::<_, HashMap<String, String>>(&job_key).await {
-            jobs.push((job_id.clone(), meta));
+    for job_id in job_ids {
+        match fetch_job_info(&job_id).await {
+            Ok(Some(info)) => job_infos.push(info),
+            Ok(None) => {
+                tracing::warn!("Job info not found for ID: {}", job_id);
+            }
+            Err(e) => {
+                tracing::error!("Failed to fetch job info for ID {}: {:?}", job_id, e);
+            }
         }
     }
-
-    let keys: Vec<String> = conn
-        .keys::<&str, Vec<String>>("snm:queue:*")
-        .await
-        .unwrap_or_default();
-    let all_queues: Vec<String> = keys
-        .iter()
-        .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
-        .collect();
 
     let mut ctx = Context::new();
-    ctx.insert("selected_queue", &queue);
-    ctx.insert("queues", &all_queues);
-    ctx.insert("jobs", &jobs);
-    ctx.insert("current_page", &page);
-    ctx.insert("total_pages", &total_pages);
-    ctx.insert("page_size", &page_size);
-    ctx.insert("total_jobs", &total_jobs);
+    ctx.insert("title", &format!("Queue: {}", queue));
+    ctx.insert("queue", &queue);
+    ctx.insert("jobs", &job_infos); // JobInfo is Serialize
+    ctx.insert("pagination", &pagination);
 
-
-
-    match TEMPLATES.render("metrics.html.tera", &ctx) {
-        Ok(html) => HttpResponse::Ok().content_type("text/html").body(html),
-        Err(e) => HttpResponse::InternalServerError().body(format!("Template error: {}", e)),
-    }
+    render_template("queue_metrics.html.tera", ctx).await
 }
 
 
 
 
 
-#[derive(Deserialize)]
-pub struct JobAction {
-    pub job_id: String,
-    pub queue: String,    // Add this field
-    pub action: String,
+pub async fn render_dead_jobs(query: web::Query<PaginationQuery>) -> impl Responder {
+    let mut conn = match get_redis_connection().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+    };
+    let jobs: Vec<String> = conn.lrange("snm:dead_jobs", 0, -1).await.unwrap_or_default();
+
+    let page = query.page.unwrap_or(DEFAULT_PAGE);
+    let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
+    let (paginated_jobs, pagination) = paginate_jobs(jobs, page, limit).await;
+
+    let mut ctx = Context::new();
+    ctx.insert("title", "Dead Jobs");
+    ctx.insert("jobs", &paginated_jobs);
+    ctx.insert("pagination", &pagination);
+    render_template("dead_jobs.html.tera", ctx).await
 }
 
-pub async fn job_action(form: web::Form<JobAction>) -> impl Responder {
-    let mut conn = match get_redis_conn().await {
+
+
+
+pub async fn render_scheduled_jobs(query: web::Query<PaginationQuery>) -> impl Responder {
+    let mut conn = match get_redis_connection().await {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
 
-    let job_id = &form.job_id;
-    let job_key = format!("snm:job:{}", job_id);
-    let queue_key: String = conn
-        .hget(&job_key, "queue")
+    let now = Utc::now().timestamp();
+    let job_ids: Vec<String> = conn
+        .zrangebyscore("snm:delayed", 0, now)
         .await
-        .unwrap_or_else(|_| "snm:queue:default".to_string());
+        .unwrap_or_default();
 
-    match form.action.as_str() {
-        "run" => {
-            let _: () = conn.lpush::<_, _, ()>(&queue_key, job_id).await.unwrap_or_default();
+    let mut job_infos = Vec::new();
+
+    for jid in job_ids {
+        if let Ok(data) = conn.get::<_, String>(format!("snm:job:{}", jid)).await {
+            if let Some(job) = deserialize_job(data).await {
+                job_infos.push(to_job_info(&job, &jid)); // ✅ Fixed: provide both arguments
+            }
         }
-        "delete" => {
-            let _: () = conn.del::<_, ()>(&job_key).await.unwrap_or_default();
-            let _: () = conn.lrem::<_, _, ()>(&queue_key, 0, job_id).await.unwrap_or_default();
-        }
-        _ => {}
     }
 
-    HttpResponse::Ok().finish()
+    let page = query.page.unwrap_or(DEFAULT_PAGE);
+    let limit = query.limit.unwrap_or(DEFAULT_LIMIT);
+    let total = job_infos.len();
+    let pagination = Pagination::new(page, limit, total);
+
+    let start = pagination.offset();
+    let end = (start + limit).min(total);
+    let paginated_job_infos = &job_infos[start..end];
+
+    let mut ctx = Context::new();
+    ctx.insert("title", "Scheduled Jobs");
+    ctx.insert("jobs", &paginated_job_infos); // ✅ Safe for Tera (JobInfo implements Serialize)
+    ctx.insert("pagination", &pagination);
+
+    render_template("scheduled_jobs.html.tera", ctx).await
 }
 
 
 
-pub async fn export_queue_csv(path: web::Path<String>) -> actix_web::Result<HttpResponse> {
-    let queue = path.into_inner();
-    let mut conn = match get_redis_conn().await {
+
+pub async fn render_worker_status() -> impl Responder {
+    let mut conn = match get_redis_connection().await {
         Ok(c) => c,
-        Err(_) => {
-            return Ok(HttpResponse::InternalServerError()
-                .body("Failed to connect to Redis"));
-        }
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
+    let keys: Vec<String> = conn.keys("snm:worker:*").await.unwrap_or_default();
+    let mut workers = Vec::new();
 
-    let job_ids: Vec<String> = match conn.lrange(format!("snm:queue:{queue}"), 0, -1).await {
-        Ok(ids) => ids,
-        Err(_) => {
-            return Ok(HttpResponse::InternalServerError()
-                .body("Failed to fetch jobs from Redis"));
+    for key in keys {
+        if let Ok(status) = conn.get::<_, String>(&key).await {
+            workers.push((key, status));
         }
-    };
-
-    let mut wtr = WriterBuilder::new().from_writer(vec![]);
-    wtr.write_record(&["job_id", "status", "created_at", "payload"])
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-
-    for job_id in &job_ids {
-        let job_key = format!("snm:job:{job_id}");
-        let payload: String = conn.hget(&job_key, "payload").await.unwrap_or_default();
-        let status: String = conn.hget(&job_key, "status").await.unwrap_or_default();
-        let created_at: String = conn.hget(&job_key, "created_at").await.unwrap_or_default();
-
-        wtr.write_record(&[job_id, &status, &created_at, &payload])
-            .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
     }
 
-    let data = wtr
-        .into_inner()
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
-
-    Ok(HttpResponse::Ok()
-        .content_type("text/csv")
-        .insert_header(ContentDisposition::attachment("export.csv"))
-        .body(data))
+    let mut ctx = Context::new();
+    ctx.insert("title", "Worker Status");
+    ctx.insert("workers", &workers);
+    render_template("workers.html.tera", ctx).await
 }
 
+pub async fn job_action(payload: web::Json<serde_json::Value>) -> impl Responder {
+    let mut conn = match get_redis_connection().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+    };
+    let action = payload.get("action").and_then(|a| a.as_str()).unwrap_or("");
+    let job_id = payload.get("job_id").and_then(|j| j.as_str()).unwrap_or("");
 
-
-
-#[derive(Deserialize)]
-pub struct RetryRequest {
-    pub job_id: String,
-    pub queue_name: String,
+    match action {
+        "delete" => {
+            let _: () = conn.del(format!("snm:job:{}", job_id)).await.unwrap_or_default();
+            HttpResponse::Ok().json(json!({"status": "deleted"}))
+        }
+        _ => HttpResponse::BadRequest().json(json!({"error": "invalid action"})),
+    }
 }
 
-pub async fn retry_job(req: web::Json<RetryRequest>) -> Result<HttpResponse, actix_web::Error> {
-    let RetryRequest { job_id, queue_name } = req.into_inner();
-    let mut conn = get_redis_conn().await.map_err(actix_web::error::ErrorInternalServerError)?;
-
-    let job_key = format!("snm:job:{}", job_id);
-    let queue_key = format!("snm:queue:{}", queue_name);
-
-    // Push job ID back to queue
-    redis::pipe()
-        .cmd("LPUSH").arg(&queue_key).arg(&job_id)
-        .ignore()
-        .cmd("HSET").arg(&job_key).arg("status").arg("queued")
-        .ignore()
-        .cmd("HSET").arg(&job_key).arg("queued_at").arg(Utc::now().to_rfc3339())
-        .query_async::<_, ()>(&mut conn)
-        .await
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    Ok(HttpResponse::Ok().json(json!({ "status": "ok", "message": "Job retried" })))
-}
-
-
-
-
-
-
-
-#[derive(Serialize)]
-struct QueueSummary {
-    queued: usize,
-    failed: usize,
-    success: usize,
+pub async fn retry_job(payload: web::Json<serde_json::Value>) -> impl Responder {
+    let mut conn = match get_redis_connection().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+    };
+    let job_id = payload.get("job_id").and_then(|j| j.as_str()).unwrap_or("");
+    if let Ok(data) = conn.get::<_, String>(format!("snm:job:{}", job_id)).await {
+        let _: () = conn.rpush("snm:queue:default", data).await.unwrap_or_default();
+        HttpResponse::Ok().json(json!({"status": "retried"}))
+    } else {
+        HttpResponse::NotFound().json(json!({"error": "job not found"}))
+    }
 }
 
 pub async fn get_metrics_summary() -> impl Responder {
-    let mut conn = match get_redis_conn().await {
+    let mut conn = match get_redis_connection().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+    };
+    let queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
+    let mut summary = Vec::new();
+
+    for queue in queues {
+        let len: usize = conn.llen(format!("snm:queue:{}", queue)).await.unwrap_or(0);
+        summary.push((queue, len));
+    }
+
+    let mut ctx = Context::new();
+    ctx.insert("title", "Metrics Summary");
+    ctx.insert("summary", &summary);
+    render_template("summary.html.tera", ctx).await
+}
+
+
+pub async fn export_queue_csv(path: web::Path<String>) -> impl Responder {
+    let queue = path.into_inner();
+    let mut conn = match get_redis_connection().await {
         Ok(c) => c,
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
 
-    let mut summary: HashMap<String, QueueSummary> = HashMap::new();
+    let key = format!("snm:queue:{}", queue);
+    let jobs: Vec<String> = conn.lrange(&key, 0, -1).await.unwrap_or_default();
 
-    let queues: Vec<String> = conn
-    .keys::<_, Vec<String>>("snm:queue:*").await.unwrap_or_default()
-    .iter()
-    .filter_map(|k| k.strip_prefix("snm:queue:").map(|s| s.to_string()))
-    .collect();
+    let mut job_infos: Vec<JobInfo> = vec![];
 
-    for queue in queues {
-        let queue_key = format!("snm:queue:{}", queue);
-        let job_ids: Vec<String> = conn.lrange(&queue_key, 0, -1).await.unwrap_or_default();
-
-        let mut queued = 0;
-        let mut success = 0;
-        let mut failed = 0;
-
-        for job_id in &job_ids {
-            let job_key = format!("snm:job:{job_id}");
-            let status: String = conn.hget(&job_key, "status").await.unwrap_or_default();
-            match status.as_str() {
-                "queued" => queued += 1,
-                "success" => success += 1,
-                "failed" => failed += 1,
-                _ => {}
-            }
+    for (i, payload) in jobs.into_iter().enumerate() {
+        if let Some(job) = deserialize_job(payload).await {
+            let id = format!("{}_{}", queue, i); // Fallback ID for CSV export
+            job_infos.push(to_job_info(&job, &id));
         }
-
-        summary.insert(queue.clone(), QueueSummary { queued, failed, success });
     }
 
-    HttpResponse::Ok().json(summary)
+    let mut wtr = csv::Writer::from_writer(vec![]);
+    for job_info in &job_infos {
+        let _ = wtr.serialize(job_info);
+    }
+
+    let data = wtr.into_inner().unwrap_or_default();
+    HttpResponse::Ok()
+        .content_type("text/csv")
+        .append_header(("Content-Disposition", format!("attachment; filename=queue_{}.csv", queue)))
+        .body(data)
 }
 

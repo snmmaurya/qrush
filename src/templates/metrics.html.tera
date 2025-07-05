@@ -1,353 +1,54 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Qrush Metrics</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: Arial, sans-serif;
-            background: #f4f4f4;
-            display: flex;
-            flex-direction: column;
-        }
-        main {
-            flex: 1;
-            padding: 20px;
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        .footer {
-            background: #111;
-            color: white;
-            text-align: center;
-            padding: 10px;
-        }
+{% extends "layout.html.tera" %}
 
-        .footer a {
-            color: #00bfff;
-            text-decoration: none;
-        }
-        .controls {
-            margin: 20px 0;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            gap: 10px;
-            align-items: center;
-        }
-        .btn {
-            padding: 8px 16px;
-            background: #333;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-        }
-        .btn:hover {
-            background: #555;
-        }
-        .gapping {
-            gap: 10px;
-        }
-        .status-box {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        .status-success {
-            color: green;
-            border: 1px solid green;
-            background: #e8f8e8;
-        }
-        .status-failed {
-            color: red;
-            border: 1px solid red;
-            background: #fce8e8;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            overflow-x: auto;
-        }
-        th, td {
-            padding: 12px;
-            border: 1px solid #ddd;
-            text-align: center;
-        }
-        th {
-            background-color: #333;
-            color: #fff;
-        }
-        .actions {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-        }
+{% block title %}All Queues{% endblock title %}
 
-        .footer {
-            background: #fff;
-            padding: 15px;
-            text-align: center;
-            font-size: 0.9em;
-            color: #666;
-            border-top: 1px solid #ddd;
-        }
-        .job-details {
-            display: none;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            margin-top: 10px;
-            padding: 10px;
-            text-align: left;
-        }
-        .queue-name {
-            color: #007bff;
-            cursor: pointer;
-            text-decoration: underline;
-        }
-        .job-actions {
-            margin-top: 10px;
-        }
-        .toast-message {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #323232;
-            color: white;
-            padding: 12px 18px;
-            border-radius: 6px;
-            font-size: 14px;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-            z-index: 9999;
-            opacity: 0.95;
-            transition: opacity 0.3s ease;
-        }
+{% block content %}
+  <div class="bg-white dark:bg-gray-900 shadow rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4 dark:text-white">Available Queues</h2>
 
-        .toast-message.success {
-            background-color: #4CAF50;
-        }
+    <!-- Filter/Search Form -->
+    <form method="GET" class="flex flex-wrap gap-2 items-center mb-4">
+      <input
+        type="text"
+        name="search"
+        placeholder="Search queues"
+        value="{{ query.search | default(value="") }}"
+        class="border rounded px-3 py-1 dark:bg-gray-800 dark:text-white"
+      />
+      <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Filter</button>
+    </form>
 
-        .toast-message.error {
-            background-color: #f44336;
-        }
+    {% if queues | length == 0 %}
+      <p class="text-gray-500 dark:text-gray-300">No queues found.</p>
+    {% else %}
+      <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        {% for queue in queues %}
+          <li class="py-2 flex justify-between items-center">
+            <span class="font-mono text-blue-600 dark:text-blue-300">{{ queue }}</span>
+            <a href="/metrics/{{ queue }}" class="text-sm text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded">
+              View Jobs
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
 
-        .pagination {
-            margin-top: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            font-family: sans-serif;
-        }
-
-        .page-btn {
-            background-color: #212121;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-
-        .page-btn:hover {
-            background-color: #333;
-        }
-
-        .page-number {
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 4px;
-            background-color: #333;
-            border: 1px solid #333;
-        }
-
-        @media (max-width: 768px) {
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            table, thead, tbody, th, td, tr {
-                display: block;
-            }
-
-            thead {
-                display: none;
-            }
-
-            tr {
-                margin-bottom: 15px;
-                background: white;
-                padding: 10px;
-                border-radius: 6px;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            }
-
-            td {
-                text-align: left;
-                padding: 8px 10px;
-                border: none;
-                border-bottom: 1px solid #eee;
-                position: relative;
-            }
-
-            td::before {
-                content: attr(data-label);
-                font-weight: bold;
-                display: block;
-                margin-bottom: 5px;
-                color: #555;
-            }
-
-            td:last-child {
-                border-bottom: none;
-            }
-        }
-    </style>
-    <meta http-equiv="refresh" content="30">
-</head>
-    <body>
-    <main>
-        <h1>Qrush Metrics</h1>
-
-        <div class="controls">
-            <div class="gapping" style="display: flex; align-items: center;">
-                <button class="btn" onclick="loadMetrics()">Refresh</button>
-
-                <div class="gapping" style="display: flex;">
-                    <div class="status-box status-success">Success: <strong>{{ stats.success }}</strong></div>
-                    <div class="status-box status-failed">Failed: <strong>{{ stats.failed }}</strong></div>
-                </div>
-            </div>
-
-            <div class="pagination">
-                {% if current_page > 1 %}
-                <button class="page-btn" onclick="loadPage({{ current_page - 1 }})">Prev</button>
-                {% endif %}
-
-                <span class="page-number">Page {{ current_page }}</span>
-
-                {% if current_page < total_pages %}
-                <button class="page-btn" onclick="loadPage({{ current_page + 1 }})">Next</button>
-                {% endif %}
-            </div>
+    <!-- Pagination -->
+    {% if page is defined %}
+      <div class="flex justify-between items-center mt-4">
+        <div class="text-sm text-gray-600 dark:text-gray-300">
+          Showing {{ page.start }} to {{ page.end }} of {{ page.total }} queues
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Queue</th>
-                    <th>Concurrency</th>
-                    <th>Priority</th>
-                    <th>Pending</th>
-                    <th>Delayed</th>
-                    <th>Success</th>
-                    <th>Failed</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for q in queues %}
-                <tr>
-                    <td data-label="Queue">
-                        <span class="queue-name" onclick="loadQueueJobs('{{ q.name }}')">{{ q.name }}</span>
-                    </td>
-                    <td data-label="Concurrency">{{ q.concurrency }}</td>
-                    <td data-label="Priority">{{ q.priority }}</td>
-                    <td data-label="Pending">{{ q.pending_jobs }}</td>
-                    <td data-label="Delayed">{{ q.delayed_jobs }}</td>
-                    <td data-label="Success">{{ q.success_jobs }}</td>
-                    <td data-label="Failed">{{ q.failed_jobs }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <!-- This is where queue jobs will be dynamically loaded -->
-        <div id="job-details-container" style="margin-top: 40px;"></div>
-    </main>
-
-    <div class="footer">
-        Powered by <a href="http://snmmaurya.com/solutions/qrush" target="_blank">SnmMaurya</a>
-    </div>
-
-    <script>
-    async function loadQueueJobs(queueName) {
-        const container = document.getElementById("job-details-container");
-        container.innerHTML = "<p><strong>Loading jobs for queue:</strong> " + queueName + "</p>";
-
-        try {
-            const res = await fetch("/qrush/queue/" + queueName);
-            const html = await res.text();
-            container.innerHTML = html;
-        } catch (err) {
-            container.innerHTML = `<p style="color:red;">Failed to load jobs: ${err.message}</p>`;
-        }
-    }
-
-    async function performJobAction(jobId, queue, action) {
-        const confirmed = confirm(`Are you sure you want to ${action} job ${jobId}?`);
-        if (!confirmed) return;
-
-        const body = new URLSearchParams();
-        body.append("job_id", jobId);
-        body.append("queue", queue);
-        body.append("action", action);
-
-        try {
-            const res = await fetch("/qrush/job_action", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: body,
-            });
-
-            const text = await res.text();
-
-            if (res.ok) {
-                showToast(text, "success");
-                loadQueueJobs(queue);
-            } else {
-                showToast("Error: " + text, "error");
-            }
-        } catch (err) {
-            showToast("Failed: " + err.message, "error");
-        }
-    }
-
-    function showToast(message, type = "success") {
-        const toast = document.createElement("div");
-        toast.className = `toast-message ${type}`;
-        toast.innerText = message;
-
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
-
-
-    function loadPage(page) {
-        window.location.href = `/qrush/metrics?page=${page}`;
-    }
-
-    function loadMetrics() {
-        window.location.href = `/qrush/metrics`;
-    }
-    </script>
-    </body>
-</html>
+        <div class="space-x-2">
+          {% if page.has_prev %}
+            <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Prev</a>
+          {% endif %}
+          {% if page.has_next %}
+            <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Next</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endblock content %}

@@ -1,12 +1,12 @@
 // src/config.rs
 
 use std::sync::{Arc, OnceLock};
-use crate::runner::{start_worker_pool, start_delayed_worker_pool};
+use crate::services::runner_service::{start_worker_pool, start_delayed_worker_pool};
 use anyhow::{anyhow, Result};
 use tokio::sync::Notify;
 use tracing::info;
 use redis::{aio::MultiplexedConnection, Client};
-
+use redis::AsyncCommands;
 
 #[derive(Clone, Debug)]
 pub struct QueueConfig {
@@ -30,6 +30,16 @@ pub fn get_shutdown_notify() -> Arc<Notify> {
     QRUSH_SHUTDOWN.get_or_init(|| Arc::new(Notify::new())).clone()
 }
 
+
+async fn store_queue_metadata(queue: &QueueConfig) -> anyhow::Result<()> {
+    let mut conn = get_redis_conn().await?;
+    let redis_key = format!("snm:queue:config:{}", queue.name);
+    conn.hset_multiple::<_, _, _, ()>(&redis_key, &[
+        ("concurrency", queue.concurrency.to_string()),
+        ("priority", queue.priority.to_string()),
+    ]).await?;
+    Ok(())
+}
 
 
 impl QueueConfig {
@@ -55,11 +65,19 @@ impl QueueConfig {
 
         info!("Worker Pool Started");
         for queue in &queues {
+            store_queue_metadata(queue).await?;
+            // Store queue config in Redis for metrics
+            let config_key = format!("snm:queue:config:{}", queue.name);
+            let mut conn = get_redis_conn().await?;
+            let _: () = redis::pipe()
+                .hset(&config_key, "concurrency", queue.concurrency)
+                .hset(&config_key, "priority", queue.priority)
+                .query_async(&mut conn)
+                .await?;
             start_worker_pool(&queue.name, queue.concurrency).await;
         }
         info!("Delayed Worker Pool Started");
         start_delayed_worker_pool().await;
-
         Ok(())
     }
 }

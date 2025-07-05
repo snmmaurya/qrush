@@ -1,0 +1,79 @@
+{% extends "layout.html.tera" %}
+
+{% block title %}Queue: {{ queue }}{% endblock title %}
+
+{% block content %}
+  <div class="bg-white shadow rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4">Queue: {{ queue }}</h2>
+
+    {% if jobs | length == 0 %}
+      <p class="text-gray-500">No jobs found in this queue.</p>
+    {% else %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr class="bg-gray-100 text-left text-sm font-semibold text-gray-700">
+              <th class="px-4 py-2">Job ID</th>
+              <th class="px-4 py-2">Status</th>
+              <th class="px-4 py-2">Created At</th>
+              <th class="px-4 py-2">Args</th>
+              <th class="px-4 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-sm">
+            {% for job in jobs %}
+              <tr>
+                <td class="px-4 py-2 font-mono text-blue-700">{{ job.id }}</td>
+                <td class="px-4 py-2">{{ job.status | default(value="N/A") }}</td>
+                <td class="px-4 py-2">{{ job.created_at | default(value="") }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                  <pre class="text-xs text-gray-600">{{ job.args | json_encode | safe }}</pre>
+                </td>
+                <td class="px-4 py-2 space-x-2">
+                  <button onclick="retryJob('{{ job.id }}')" class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600">
+                    Retry
+                  </button>
+                  <button onclick="deleteJob('{{ job.id }}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="mt-4 flex justify-center space-x-2">
+        {% if pagination.total_pages > 1 %}
+          {% for p in range(start=1, end=pagination.total_pages + 1) %}
+            <a href="?page={{ p }}&limit={{ pagination.limit }}"
+               class="px-3 py-1 rounded border text-sm {{ p == pagination.page then "bg-blue-500 text-white" else "bg-white text-gray-700 border-gray-300" }}">
+              {{ p }}
+            </a>
+          {% endfor %}
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <script>
+    async function retryJob(jobId) {
+      const res = await fetch("/metrics/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId })
+      });
+      if (res.ok) location.reload();
+    }
+
+    async function deleteJob(jobId) {
+      const res = await fetch("/metrics/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", job_id: jobId })
+      });
+      if (res.ok) location.reload();
+    }
+  </script>
+{% endblock content %}

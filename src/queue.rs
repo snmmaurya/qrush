@@ -1,6 +1,7 @@
+// src/queue.rs
 use crate::job::Job;
-use crate::rdconfig::get_redis_conn;
-use crate::constants::{DELAYED_JOBS_KEY, PREFIX_QUEUE};
+use crate::utils::rdconfig::get_redis_connection;
+use crate::utils::constants::{DELAYED_JOBS_KEY, PREFIX_QUEUE};
 
 use serde::Serialize;
 use serde_json::to_string;
@@ -8,21 +9,20 @@ use redis::AsyncCommands;
 use chrono::Utc;
 use nanoid::nanoid;
 
-/// Enqueues a job immediately into its specified queue.
 pub async fn enqueue<J>(job: J) -> anyhow::Result<()>
 where
-    J: Job + Serialize +,
+    J: Job + Serialize,
 {
-    let mut conn = get_redis_conn().await?;
+    let mut conn = get_redis_connection().await?;
     let payload = to_string(&job)?;
     let job_id = nanoid!(10);
     let now = Utc::now().to_rfc3339();
 
-    let queue_key = format!("{PREFIX_QUEUE}:{}", <J as Job>::queue());
+    let queue_key = format!("{PREFIX_QUEUE}:{}", job.queue());
     let job_key = format!("snm:job:{job_id}");
 
     conn.hset_multiple::<_, _, _, ()>(&job_key, &[
-        ("queue", <J as Job>::queue()),
+        ("queue", job.queue()),
         ("status", "pending"),
         ("payload", &payload),
         ("created_at", &now),
@@ -34,12 +34,15 @@ where
     Ok(())
 }
 
-/// Enqueues a job with a delay in seconds.
+
+
+
+
 pub async fn enqueue_in<J>(job: J, delay_secs: u64) -> anyhow::Result<()>
 where
-    J: Job + Serialize +,
+    J: Job + Serialize,
 {
-    let mut conn = get_redis_conn().await?;
+    let mut conn = get_redis_connection().await?;
     let payload = to_string(&job)?;
     let job_id = nanoid!(10);
     let now = Utc::now().to_rfc3339();
@@ -48,7 +51,7 @@ where
     let job_key = format!("snm:job:{job_id}");
 
     conn.hset_multiple::<_, _, _, ()>(&job_key, &[
-        ("queue", <J as Job>::queue()),
+        ("queue", job.queue()),
         ("status", "delayed"),
         ("payload", &payload),
         ("created_at", &now),

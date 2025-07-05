@@ -1,0 +1,38 @@
+{% extends "layout.html.tera" %}
+
+{% block title %}Workers{% endblock title %}
+
+{% block content %}
+  <div class="bg-white shadow rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4">Active Workers</h2>
+
+    {% if workers | length == 0 %}
+      <p class="text-gray-500">No active workers detected.</p>
+    {% else %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr class="text-left text-sm font-semibold text-gray-700">
+              <th class="px-4 py-2">Worker ID</th>
+              <th class="px-4 py-2">Queues</th>
+              <th class="px-4 py-2">Last Seen</th>
+              <th class="px-4 py-2">Hostname</th>
+              <th class="px-4 py-2">PID</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-sm">
+            {% for w in workers %}
+              <tr>
+                <td class="px-4 py-2 font-mono text-blue-700">{{ w.id }}</td>
+                <td class="px-4 py-2">{{ w.queues | join(sep=", ") }}</td>
+                <td class="px-4 py-2">{{ w.last_seen }}</td>
+                <td class="px-4 py-2">{{ w.hostname }}</td>
+                <td class="px-4 py-2">{{ w.pid }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+{% endblock content %}
