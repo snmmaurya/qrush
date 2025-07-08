@@ -9,3 +9,4 @@ pub async fn get_redis_connection() -> redis::RedisResult<MultiplexedConnection>
     let client = Client::open(redis_url)?;
     client.get_multiplexed_async_connection().await
 }
+

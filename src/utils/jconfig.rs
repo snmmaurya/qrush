@@ -17,7 +17,10 @@ pub struct JobInfo {
     pub payload: Option<String>,
     pub status: Option<String>,
     pub created_at: Option<String>,
+    pub updated_at: Option<String>,
     pub run_at: Option<String>,
+    pub error: Option<String>,
+    pub failed_at: Option<String>,
 }
 
 
@@ -30,6 +33,9 @@ pub fn to_job_info(job: &Box<dyn Job>, id: &str) -> JobInfo {
         payload: Some("N/A".to_string()), // Replace with actual payload if needed
         status: None,
         created_at: None,
+        updated_at: None,
+        failed_at: None,
+        error: None,
         run_at: None,
     }
 }
@@ -71,12 +77,15 @@ pub async fn fetch_job_info(job_id: &str) -> Result<Option<JobInfo>> {
 
         let mut job_info = JobInfo {
             id: job_id.to_string(),
-            job_type: "unknown".to_string(), // or derive this from payload if needed
+            job_type: "unknown".to_string(),
             queue: None,
             status: None,
             payload: None,
             created_at: None,
+            updated_at: None,
             run_at: None,
+            error: None,
+            failed_at: None,
         };
 
         for chunk in items.chunks(2) {
@@ -89,14 +98,15 @@ pub async fn fetch_job_info(job_id: &str) -> Result<Option<JobInfo>> {
                     "status" => job_info.status = Some(val.to_string()),
                     "payload" => {
                         job_info.payload = Some(val.to_string());
-
-                        // try to extract job_type from payload
                         if let Some(job_type) = extract_job_type(&val) {
                             job_info.job_type = job_type;
                         }
                     }
                     "created_at" => job_info.created_at = Some(val.to_string()),
+                    "updated_at" => job_info.updated_at = Some(val.to_string()),
                     "run_at" => job_info.run_at = Some(val.to_string()),
+                    "error" => job_info.error = Some(val.to_string()),
+                    "failed_at" => job_info.failed_at = Some(val.to_string()),
                     _ => {}
                 }
             }

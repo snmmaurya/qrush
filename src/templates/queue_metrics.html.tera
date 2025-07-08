@@ -1,79 +1,56 @@
 {% extends "layout.html.tera" %}
 
-{% block title %}Queue: {{ queue }}{% endblock title %}
+{% block title %}Queue: {{ queue }} - Qrush Dashboard{% endblock title %}
 
 {% block content %}
-  <div class="bg-white shadow rounded-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Queue: {{ queue }}</h2>
+<h2 class="text-xl font-semibold mb-4">Queue: {{ queue }}</h2>
 
-    {% if jobs | length == 0 %}
-      <p class="text-gray-500">No jobs found in this queue.</p>
+<table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700 mb-6">
+  <thead class="bg-gray-200 dark:bg-gray-800">
+    <tr>
+      <th class="px-4 py-2 text-left text-sm font-semibold">Job ID</th>
+      <th class="px-4 py-2 text-left text-sm font-semibold">Status</th>
+      <th class="px-4 py-2 text-left text-sm font-semibold">Created At</th>
+      <th class="px-4 py-2 text-left text-sm font-semibold">Actions</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+    {% for job in jobs %}
+    <tr>
+      <td class="px-4 py-2 text-sm">{{ job.id }}</td>
+      <td class="px-4 py-2 text-sm">{{ job.status }}</td>
+      <td class="px-4 py-2 text-sm">{{ job.created_at }}</td>
+      <td class="px-4 py-2 text-sm">
+        <form method="POST" action="/qrush/metrics/job/action" class="inline-flex gap-2">
+          <input type="hidden" name="job_id" value="{{ job.id }}">
+          <button type="submit" name="action" value="retry" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">Retry</button>
+          <button type="submit" name="action" value="delete" class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700">Delete</button>
+        </form>
+      </td>
+    </tr>
     {% else %}
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead>
-            <tr class="bg-gray-100 text-left text-sm font-semibold text-gray-700">
-              <th class="px-4 py-2">Job ID</th>
-              <th class="px-4 py-2">Status</th>
-              <th class="px-4 py-2">Created At</th>
-              <th class="px-4 py-2">Args</th>
-              <th class="px-4 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 text-sm">
-            {% for job in jobs %}
-              <tr>
-                <td class="px-4 py-2 font-mono text-blue-700">{{ job.id }}</td>
-                <td class="px-4 py-2">{{ job.status | default(value="N/A") }}</td>
-                <td class="px-4 py-2">{{ job.created_at | default(value="") }}</td>
-                <td class="px-4 py-2 whitespace-nowrap">
-                  <pre class="text-xs text-gray-600">{{ job.args | json_encode | safe }}</pre>
-                </td>
-                <td class="px-4 py-2 space-x-2">
-                  <button onclick="retryJob('{{ job.id }}')" class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600">
-                    Retry
-                  </button>
-                  <button onclick="deleteJob('{{ job.id }}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <tr><td colspan="4" class="px-4 py-2 text-sm text-center">No jobs in queue</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Pagination -->
+<div class="flex items-center justify-between text-sm">
+  {% if page is defined %}
+    <div class="flex justify-between items-center mt-4">
+      <div class="text-sm text-gray-600 dark:text-gray-300">
+        Showing {{ page.start }} to {{ page.end }} of {{ page.total }} queues
       </div>
 
-      <!-- Pagination -->
-      <div class="mt-4 flex justify-center space-x-2">
-        {% if pagination.total_pages > 1 %}
-          {% for p in range(start=1, end=pagination.total_pages + 1) %}
-            <a href="?page={{ p }}&limit={{ pagination.limit }}"
-               class="px-3 py-1 rounded border text-sm {{ p == pagination.page then "bg-blue-500 text-white" else "bg-white text-gray-700 border-gray-300" }}">
-              {{ p }}
-            </a>
-          {% endfor %}
+      <div class="space-x-2">
+        {% if page.has_prev %}
+          <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Prev</a>
+        {% endif %}
+        {% if page.has_next %}
+          <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Next</a>
         {% endif %}
       </div>
-    {% endif %}
-  </div>
-
-  <script>
-    async function retryJob(jobId) {
-      const res = await fetch("/metrics/retry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: jobId })
-      });
-      if (res.ok) location.reload();
-    }
-
-    async function deleteJob(jobId) {
-      const res = await fetch("/metrics/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", job_id: jobId })
-      });
-      if (res.ok) location.reload();
-    }
-  </script>
+    </div>
+  {% endif %}
+</div>
 {% endblock content %}

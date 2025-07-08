@@ -1,37 +1,37 @@
 {% extends "layout.html.tera" %}
 
-{% block title %}Dead Jobs{% endblock title %}
+{% block title %}Delayed Jobs{% endblock title %}
 
 {% block content %}
-  <div class="bg-white shadow rounded-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Dead (Failed) Jobs</h2>
+  <div class="bg-white shadow rounded-lg p-6 dark:bg-gray-900 dark:text-white">
+    <h2 class="text-xl font-semibold mb-4">Delayed Jobs</h2>
 
     {% if jobs | length == 0 %}
-      <p class="text-gray-500">No failed jobs found.</p>
+      <p class="text-gray-400">No delayed jobs found.</p>
     {% else %}
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-100">
-            <tr class="text-left text-sm font-semibold text-gray-700">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-100 dark:bg-gray-800">
+            <tr class="text-left text-sm font-semibold text-gray-700 dark:text-gray-300">
               <th class="px-4 py-2">Job ID</th>
               <th class="px-4 py-2">Queue</th>
-              <th class="px-4 py-2">Failed At</th>
-              <th class="px-4 py-2">Error</th>
+              <th class="px-4 py-2">Run At</th>
+              <th class="px-4 py-2">Args</th>
               <th class="px-4 py-2">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100 text-sm">
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-800 text-sm">
             {% for job in jobs %}
               <tr>
-                <td class="px-4 py-2 font-mono text-red-600">{{ job.id }}</td>
-                <td class="px-4 py-2">{{ job.queue }}</td>
-                <td class="px-4 py-2">{{ job.failed_at }}</td>
-                <td class="px-4 py-2 text-xs text-gray-600 max-w-xs truncate" title="{{ job.error }}">
-                  {{ job.error }}
+                <td class="px-4 py-2 font-mono text-blue-700 dark:text-blue-300">{{ job.id }}</td>
+                <td class="px-4 py-2">{{ job.queue | default(value="N/A") }}</td>
+                <td class="px-4 py-2">{{ job.run_at | default(value="N/A") }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                  <pre class="text-xs text-gray-600 dark:text-gray-400">{{ job.payload | json_encode | safe }}</pre>
                 </td>
                 <td class="px-4 py-2 space-x-2">
                   <button onclick="retryJob('{{ job.id }}')" class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600">
-                    Retry
+                    Run Now
                   </button>
                   <button onclick="deleteJob('{{ job.id }}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
                     Delete
@@ -44,6 +44,7 @@
       </div>
     {% endif %}
   </div>
+
 
   <!-- Pagination -->
   <div class="flex items-center justify-between text-sm">
@@ -65,7 +66,6 @@
     {% endif %}
   </div>
 
-
   <script>
     async function retryJob(jobId) {
       const res = await fetch("/qrush/metrics/jobs/action", {
@@ -77,7 +77,7 @@
     }
 
     async function deleteJob(jobId) {
-      const res = await fetch("/job/action", {
+      const res = await fetch("/qrush/metrics/jobs/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", job_id: jobId })

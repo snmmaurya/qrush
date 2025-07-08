@@ -6,11 +6,11 @@ use tera::{Context, Tera};
 // Centralized template list to keep code clean and DRY
 const TEMPLATE_FILES: &[(&str, &str)] = &[
     ("layout.html.tera", include_str!("../templates/layout.html.tera")),
-    ("base.html.tera", include_str!("../templates/base.html.tera")),
     ("dead_jobs.html.tera", include_str!("../templates/dead_jobs.html.tera")),
     ("metrics.html.tera", include_str!("../templates/metrics.html.tera")),
     ("queue_metrics.html.tera", include_str!("../templates/queue_metrics.html.tera")),
     ("scheduled_jobs.html.tera", include_str!("../templates/scheduled_jobs.html.tera")),
+    ("delayed_jobs.html.tera", include_str!("../templates/delayed_jobs.html.tera")),
     ("summary.html.tera", include_str!("../templates/summary.html.tera")),
     ("workers.html.tera", include_str!("../templates/workers.html.tera")),
     ("errors/404.html.tera", include_str!("../templates/errors/404.html.tera")),

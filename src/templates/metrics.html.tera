@@ -6,31 +6,64 @@
   <div class="bg-white dark:bg-gray-900 shadow rounded-lg p-6">
     <h2 class="text-xl font-semibold mb-4 dark:text-white">Available Queues</h2>
 
-    <!-- Filter/Search Form -->
-    <form method="GET" class="flex flex-wrap gap-2 items-center mb-4">
-      <input
-        type="text"
-        name="search"
-        placeholder="Search queues"
-        value="{{ query.search | default(value="") }}"
-        class="border rounded px-3 py-1 dark:bg-gray-800 dark:text-white"
-      />
-      <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Filter</button>
-    </form>
+    <!-- Summary + Filter Row -->
+    <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+      <!-- Metrics Summary -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div class="text-sm text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-800 px-3 py-1 rounded">
+          ✅ Success Jobs: <strong>{{ stats.success_jobs }}</strong>
+        </div>
+        <div class="text-sm text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-800 px-3 py-1 rounded">
+          ❌ Failed Jobs: <strong>{{ stats.failed_jobs }}</strong>
+        </div>
+      </div>
+
+      <!-- Filter/Search Form -->
+      <form method="GET" class="flex gap-2 items-center">
+        <input
+          type="text"
+          name="search"
+          placeholder="Search queues"
+          value="{{ query.search | default(value="") }}"
+          class="border rounded px-3 py-1 dark:bg-gray-800 dark:text-white"
+        />
+        <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Filter</button>
+      </form>
+    </div>
 
     {% if queues | length == 0 %}
       <p class="text-gray-500 dark:text-gray-300">No queues found.</p>
     {% else %}
-      <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-        {% for queue in queues %}
-          <li class="py-2 flex justify-between items-center">
-            <span class="font-mono text-blue-600 dark:text-blue-300">{{ queue }}</span>
-            <a href="/metrics/{{ queue }}" class="text-sm text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded">
-              View Jobs
-            </a>
-          </li>
-        {% endfor %}
-      </ul>
+      <div class="overflow-x-auto">
+        <table class="min-w-full border dark:border-gray-700 text-sm text-left">
+          <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+            <tr>
+              <th class="px-4 py-2">Queue</th>
+              <th class="px-4 py-2">Pending</th>
+              <th class="px-4 py-2">Retry</th>
+              <th class="px-4 py-2">Success</th>
+              <th class="px-4 py-2">Failed</th>
+              <th class="px-4 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y dark:divide-gray-700">
+            {% for queue in queues %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800">
+                <td class="px-4 py-2">{{ queue.name }}</td>
+                <td class="px-4 py-2">{{ queue.pending }}</td>
+                <td class="px-4 py-2">{{ queue.retry }}</td>
+                <td class="px-4 py-2 text-green-600 dark:text-green-400">{{ queue.success }}</td>
+                <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ queue.failed }}</td>
+                <td class="px-4 py-2">
+                  <a href="/qrush/metrics/queues/{{ queue.name }}" class="text-sm text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded">
+                    View Jobs
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% endif %}
 
     <!-- Pagination -->

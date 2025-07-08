@@ -15,40 +15,32 @@
   </head>
 
   <body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
-    <div class="flex min-h-screen">
-      <!-- Sidebar -->
-      <aside class="w-64 bg-gray-800 text-white dark:bg-gray-950 p-4">
-        <h2 class="text-xl font-bold mb-6">Qrush</h2>
-        <nav class="space-y-2">
-          <a href="/metrics" class="block py-2 px-3 rounded hover:bg-gray-700 dark:hover:bg-gray-700">All Queues</a>
-          <a href="/metrics/dead" class="block py-2 px-3 rounded hover:bg-gray-700 dark:hover:bg-gray-700">Dead Jobs</a>
-          <a href="/metrics/scheduled" class="block py-2 px-3 rounded hover:bg-gray-700 dark:hover:bg-gray-700">Scheduled Jobs</a>
-          <a href="/metrics/workers" class="block py-2 px-3 rounded hover:bg-gray-700 dark:hover:bg-gray-700">Workers</a>
-          <a href="/summary" class="block py-2 px-3 rounded hover:bg-gray-700 dark:hover:bg-gray-700">Summary</a>
-        </nav>
+    <div class="min-h-screen flex flex-col">
+      <!-- Top Header Navigation -->
+      <header class="bg-gray-800 text-white dark:bg-gray-950 px-6 py-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+          <h1 class="text-2xl font-bold mb-2 sm:mb-0">Qrush Dashboard</h1>
 
-        <!-- Dark Mode Toggle -->
-        <div class="mt-6">
-          <button
-            id="toggleDarkMode"
-            class="w-full mt-4 px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded"
-          >
-            Toggle Dark Mode
-          </button>
+          <nav class="flex flex-wrap gap-3 text-sm">
+            <a href="/qrush/metrics" class="hover:underline">All Queues</a>
+            <a href="/qrush/metrics/extras/dead" class="hover:underline">Dead</a>
+            <a href="/qrush/metrics/extras/delayed" class="hover:underline">Delayed</a>
+            <a href="/qrush/metrics/extras/scheduled" class="hover:underline">Scheduled</a>
+            <a href="/qrush/metrics/extras/workers" class="hover:underline">Workers</a>
+            <a href="/qrush/metrics/extras/summary" class="hover:underline">Summary</a>
+            <button
+              id="toggleDarkMode"
+              class="ml-4 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
+            >
+              Toggle Dark Mode
+            </button>
+          </nav>
         </div>
-      </aside>
+      </header>
 
       <!-- Main Content -->
       <main class="flex-1 p-6 bg-white dark:bg-gray-900">
-        <header class="mb-6">
-          <h1 class="text-3xl font-bold dark:text-white">
-            {% block page_heading %}Dashboard{% endblock page_heading %}
-          </h1>
-        </header>
-
-        <section>
-          {% block content %}{% endblock content %}
-        </section>
+        {% block content %}{% endblock content %}
       </main>
     </div>
 

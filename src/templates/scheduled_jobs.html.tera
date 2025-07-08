@@ -47,7 +47,7 @@
 
   <script>
     async function retryJob(jobId) {
-      const res = await fetch("/job/retry", {
+      const res = await fetch("/qrush/metrics/jobs/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ job_id: jobId })
@@ -56,7 +56,7 @@
     }
 
     async function deleteJob(jobId) {
-      const res = await fetch("/job/action", {
+      const res = await fetch("/qrush/metrics/jobs/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", job_id: jobId })

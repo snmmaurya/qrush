@@ -10,13 +10,14 @@ use crate::utils::constants::{DELAYED_JOBS_KEY, MAX_RETRIES};
 
 
 pub async fn start_worker_pool(queue: &str, concurrency: usize) {
-    let shutdown = get_shutdown_notify();
-
+    let shutdown = get_shutdown_notify();    
     for _ in 0..concurrency {
         let queue = queue.to_string();
         let shutdown = shutdown.clone();
 
         tokio::spawn(async move {
+            let mut error_message: Option<String> = None; // <-- Move here
+
             loop {
                 if shutdown.notified().now_or_never().is_some() {
                     break;
@@ -48,7 +49,6 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                         match job_result {
                             Ok(job) => {
                                 if let Err(_) = job.before().await {
-                                    // Skip job execution but still mark it
                                     let _: () = conn.hset_multiple(&job_key, &[
                                         ("status", "skipped"),
                                         ("skipped_at", &Utc::now().to_rfc3339()),
@@ -57,60 +57,61 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                                 }
 
                                 match job.perform().await {
-                                Ok(_) => {
-                                    let _ = job.after().await;
-
-                                    let _: () = conn.hset_multiple(&job_key, &[
-                                        ("status", "success"),
-                                        ("completed_at", &Utc::now().to_rfc3339()),
-                                    ]).await.unwrap_or_default();
-
-                                    let _: () = conn.incr("snm:qrush:success", 1).await.unwrap_or_default();
-                                }
-                                Err(err) => {
-                                    let _ = job.on_error(&err).await;
-
-                                    let retries: i64 = conn.hincr(&job_key, "retries", 1).await.unwrap_or(1);
-                                    if retries <= MAX_RETRIES as i64 {
-                                        let backoff = 10 * retries;
-                                        let now = Utc::now().timestamp();
-                                        let _: () = conn.zadd(DELAYED_JOBS_KEY, &job_id, now + backoff).await.unwrap_or_default();
+                                    Ok(_) => {
+                                        let _ = job.after().await;
+                                        let _: () = conn.hset_multiple(&job_key, &[
+                                            ("status", "success"),
+                                            ("completed_at", &Utc::now().to_rfc3339()),
+                                        ]).await.unwrap_or_default();
+                                        let _: () = conn.incr("snm:qrush:success", 1).await.unwrap_or_default();
+                                        // Track success jobs
+                                        let _: () = conn.rpush(format!("snm:success:{}", queue), &job_id).await.unwrap_or_default();
+                                    }
+                                    Err(err) => {
+                                        let _ = job.on_error(&err).await;
+                                        let retries: i64 = conn.hincr(&job_key, "retries", 1).await.unwrap_or(1);
+                                        let _: () = conn.rpush(format!("snm:retry:{}", queue), &job_id).await.unwrap_or_default();
+                                        if retries <= MAX_RETRIES as i64 {
+                                            let backoff = 10 * retries;
+                                            let now = Utc::now().timestamp();
+                                            let _: () = conn.zadd(DELAYED_JOBS_KEY, &job_id, now + backoff).await.unwrap_or_default();
+                                        }
                                     }
                                 }
-                            }
-
 
                                 let _ = job.always().await;
-
                                 handled = true;
-                                // log...
                                 break;
                             }
-                            Err(_) => {
-                                // Handler failure, do nothing – continue
+                            Err(e) => {
+                                error_message = Some(e.to_string());
                             }
                         }
                     }
 
-
-
                     if !handled {
-                        let _: () = conn.hset_multiple(&job_key, &[
-                            ("status", "failed"),
-                            ("completed_at", &Utc::now().to_rfc3339()),
-                            ("queue", &queue),
-                            ("failed_at", &Utc::now().to_rfc3339()),
-                        ]).await.unwrap_or_default();
+                        let mut hset_data = vec![
+                            ("status", "failed".to_string()),
+                            ("completed_at", Utc::now().to_rfc3339()),
+                            ("queue", queue.clone()),
+                            ("failed_at", Utc::now().to_rfc3339()),
+                        ];
 
+                        if let Some(ref emsg) = error_message {
+                            hset_data.push(("error", emsg.clone()));
+                        }
+
+                        let _: () = conn.hset_multiple(&job_key, &hset_data).await.unwrap_or_default();
                         let _: () = conn.incr("snm:qrush:failed", 1).await.unwrap_or_default();
                         let _: Result<(), _> = conn.lpush(
                             format!("snm:logs:{}", queue),
                             format!("[{}] ❌ Job {} failed", Utc::now(), job_id),
                         ).await;
                         let _: Result<(), _> = conn.ltrim(format!("snm:logs:{}", queue), 0, 99).await;
-
                         let _: () = conn.rpush("snm:failed_jobs", &job_id).await.unwrap_or_default();
                         let _: () = conn.hset(&job_key, "job_name", jobs.keys().next().unwrap_or(&"unknown")).await.unwrap_or_default();
+                        // Track failed jobs
+                        let _: () = conn.rpush(format!("snm:failed:{}", queue), &job_id).await.unwrap_or_default();
                     }
                 }
 
@@ -118,6 +119,10 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
             }
         });
     }
+
+
+
+
 }
 
 
