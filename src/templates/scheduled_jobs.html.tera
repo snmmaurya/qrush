@@ -3,16 +3,16 @@
 {% block title %}Scheduled Jobs{% endblock title %}
 
 {% block content %}
-  <div class="bg-white shadow rounded-lg p-6">
-    <h2 class="text-xl font-semibold mb-4">Scheduled Jobs</h2>
+  <div class="bg-light-surface dark:bg-dark-surface shadow rounded-xl p-6">
+    <h2 class="text-xl font-semibold mb-4 text-light-text dark:text-dark-text">Scheduled Jobs</h2>
 
     {% if jobs | length == 0 %}
-      <p class="text-gray-500">No scheduled jobs found.</p>
+      <p class="text-muted dark:text-dark-muted">No scheduled jobs found.</p>
     {% else %}
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-100">
-            <tr class="text-left text-sm font-semibold text-gray-700">
+        <table class="min-w-full divide-y divide-light-border dark:divide-dark-border text-sm text-left">
+          <thead class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted">
+            <tr>
               <th class="px-4 py-2">Job ID</th>
               <th class="px-4 py-2">Queue</th>
               <th class="px-4 py-2">Scheduled At</th>
@@ -20,20 +20,20 @@
               <th class="px-4 py-2">Actions</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100 text-sm">
+          <tbody class="divide-y divide-light-border dark:divide-dark-border">
             {% for job in jobs %}
-              <tr>
-                <td class="px-4 py-2 font-mono text-blue-700">{{ job.id }}</td>
-                <td class="px-4 py-2">{{ job.queue | default(value="N/A") }}</td>
-                <td class="px-4 py-2">{{ job.scheduled_at }}</td>
+              <tr class="hover:bg-light-hover dark:hover:bg-dark-hover">
+                <td class="px-4 py-2 font-mono text-blue-700 dark:text-dark-hover">{{ job.id }}</td>
+                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ job.queue | default(value="N/A") }}</td>
+                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ job.scheduled_at }}</td>
                 <td class="px-4 py-2 whitespace-nowrap">
-                  <pre class="text-xs text-gray-600">{{ job.args | json_encode | safe }}</pre>
+                  <pre class="text-xs text-muted dark:text-dark-muted">{{ job.args | json_encode | safe }}</pre>
                 </td>
                 <td class="px-4 py-2 space-x-2">
-                  <button onclick="retryJob('{{ job.id }}')" class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600">
+                  <button onclick="retryJob('{{ job.id }}')" class="bg-success-500 text-white px-2 py-1 rounded text-xs hover:bg-success-600">
                     Run Now
                   </button>
-                  <button onclick="deleteJob('{{ job.id }}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">
+                  <button onclick="deleteJob('{{ job.id }}')" class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700">
                     Delete
                   </button>
                 </td>

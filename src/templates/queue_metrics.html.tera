@@ -1,12 +1,12 @@
 {% extends "layout.html.tera" %}
 
-{% block title %}Queue: {{ queue }} - Qrush Dashboard{% endblock title %}
+{% block title %}Metrics: {{ queue }}{% endblock title %}
 
 {% block content %}
-<h2 class="text-xl font-semibold mb-4">Queue: {{ queue }}</h2>
+<h2 class="text-xl font-semibold mb-4 text-light-text dark:text-dark-text">Queue: {{ queue }}</h2>
 
-<table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700 mb-6">
-  <thead class="bg-gray-200 dark:bg-gray-800">
+<table class="min-w-full border border-light-border dark:border-dark-border text-sm text-left mb-6">
+  <thead class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted">
     <tr>
       <th class="px-4 py-2 text-left text-sm font-semibold">Job ID</th>
       <th class="px-4 py-2 text-left text-sm font-semibold">Status</th>
@@ -14,12 +14,12 @@
       <th class="px-4 py-2 text-left text-sm font-semibold">Actions</th>
     </tr>
   </thead>
-  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+  <tbody class="divide-y divide-light-border dark:divide-dark-border">
     {% for job in jobs %}
-    <tr>
-      <td class="px-4 py-2 text-sm">{{ job.id }}</td>
-      <td class="px-4 py-2 text-sm">{{ job.status }}</td>
-      <td class="px-4 py-2 text-sm">{{ job.created_at }}</td>
+    <tr class="hover:bg-light-hover dark:hover:bg-dark-hover">
+      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.id }}</td>
+      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.status }}</td>
+      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.created_at }}</td>
       <td class="px-4 py-2 text-sm">
         <form method="POST" action="/qrush/metrics/job/action" class="inline-flex gap-2">
           <input type="hidden" name="job_id" value="{{ job.id }}">
@@ -29,7 +29,9 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="4" class="px-4 py-2 text-sm text-center">No jobs in queue</td></tr>
+    <tr>
+      <td colspan="4" class="px-4 py-2 text-sm text-center text-muted dark:text-dark-muted">No jobs in queue</td>
+    </tr>
     {% endfor %}
   </tbody>
 </table>
@@ -37,17 +39,20 @@
 <!-- Pagination -->
 <div class="flex items-center justify-between text-sm">
   {% if page is defined %}
-    <div class="flex justify-between items-center mt-4">
-      <div class="text-sm text-gray-600 dark:text-gray-300">
+    <div class="flex justify-between items-center mt-4 w-full">
+      <div class="text-muted dark:text-dark-muted">
         Showing {{ page.start }} to {{ page.end }} of {{ page.total }} queues
       </div>
-
       <div class="space-x-2">
         {% if page.has_prev %}
-          <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Prev</a>
+          <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border border-light-border dark:border-dark-border rounded text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover">
+            Prev
+          </a>
         {% endif %}
         {% if page.has_next %}
-          <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Next</a>
+          <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border border-light-border dark:border-dark-border rounded text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover">
+            Next
+          </a>
         {% endif %}
       </div>
     </div>

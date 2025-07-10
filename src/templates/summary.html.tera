@@ -7,30 +7,30 @@
 
     <!-- Top Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-white rounded shadow p-4">
-        <h3 class="text-gray-500 text-sm">Total Jobs</h3>
-        <p class="text-2xl font-semibold text-blue-600">{{ stats.total_jobs }}</p>
+      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
+        <h3 class="text-muted dark:text-dark-muted text-sm">Total Jobs</h3>
+        <p class="text-2xl font-semibold text-light-accent dark:text-dark-accent">{{ stats.total_jobs }}</p>
       </div>
 
-      <div class="bg-white rounded shadow p-4">
-        <h3 class="text-gray-500 text-sm">Failed Jobs</h3>
-        <p class="text-2xl font-semibold text-red-600">{{ stats.failed_jobs }}</p>
+      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
+        <h3 class="text-muted dark:text-dark-muted text-sm">Failed Jobs</h3>
+        <p class="text-2xl font-semibold text-red-600 dark:text-dark-error">{{ stats.failed_jobs }}</p>
       </div>
 
-      <div class="bg-white rounded shadow p-4">
-        <h3 class="text-gray-500 text-sm">Scheduled Jobs</h3>
-        <p class="text-2xl font-semibold text-yellow-600">{{ stats.scheduled_jobs }}</p>
+      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
+        <h3 class="text-muted dark:text-dark-muted text-sm">Scheduled Jobs</h3>
+        <p class="text-2xl font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.scheduled_jobs }}</p>
       </div>
 
-      <div class="bg-white rounded shadow p-4">
-        <h3 class="text-gray-500 text-sm">Active Workers</h3>
-        <p class="text-2xl font-semibold text-green-600">{{ stats.active_workers }}</p>
+      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
+        <h3 class="text-muted dark:text-dark-muted text-sm">Active Workers</h3>
+        <p class="text-2xl font-semibold text-green-600 dark:text-dark-success">{{ stats.active_workers }}</p>
       </div>
     </div>
 
     <!-- Chart -->
-    <div class="bg-white rounded shadow p-4">
-      <h2 class="text-lg font-semibold mb-4">Jobs Processed (Last 7 Days)</h2>
+    <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
+      <h2 class="text-lg font-semibold mb-4 text-light-text dark:text-dark-text">Jobs Processed (Last 7 Days)</h2>
       <canvas id="jobChart" height="100"></canvas>
     </div>
   </div>
@@ -48,21 +48,37 @@
       type: 'bar',
       data: {
         labels: {{ chart.labels | json_encode() | safe }},
-        datasets: [{
-          label: 'Jobs',
-          data: {{ chart.data | json_encode() | safe }},
-          backgroundColor: '#3B82F6'
-        }]
+        datasets: [
+          {
+            label: 'Success',
+            data: {{ chart.success | json_encode() | safe }},
+            backgroundColor: '#10B981' // original green
+          },
+          {
+            label: 'Failed',
+            data: {{ chart.failed | json_encode() | safe }},
+            backgroundColor: '#EF4444' // original red
+          }
+        ]
       },
       options: {
         responsive: true,
         plugins: {
-          legend: { display: false },
-          tooltip: { mode: 'index', intersect: false }
+          tooltip: {
+            mode: 'index',
+            intersect: false
+          },
+          legend: {
+            position: 'top'
+          }
         },
         scales: {
+          x: {
+            stacked: true
+          },
           y: {
             beginAtZero: true,
+            stacked: true,
             ticks: {
               precision: 0
             }

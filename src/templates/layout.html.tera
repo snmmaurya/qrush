@@ -1,61 +1,172 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>{% block title %}Qrush Dashboard{% endblock title %}</title>
+    <title>{% block title %}Qrush Metrics{% endblock title %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
       tailwind.config = {
-        darkMode: 'class'
-      }
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              dark: {
+                background: '#0D1B2A',
+                surface: '#1B263B',
+                accent: '#415A77',
+                hover: '#778DA9',
+                text: '#E0E1DD',
+                muted: '#A9B8C1',
+                border: '#2C3E50',
+              },
+              light: {
+                background: '#F4F9FF',
+                surface: '#EAF3FC',
+                accent: '#2F80ED',
+                hover: '#1C6DD0',
+                text: '#1B1F3B',
+                muted: '#5F6F8D',
+                border: '#D3E0EF',
+              }
+            }
+          }
+        }
+      };
     </script>
+
+    <style>
+      html, body {
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      .toast {
+        @apply px-4 py-2 rounded shadow text-sm font-medium transition-opacity duration-300;
+      }
+    </style>
   </head>
 
-  <body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">
+  <body class="bg-light-background text-light-text dark:bg-dark-background dark:text-dark-text">
     <div class="min-h-screen flex flex-col">
-      <!-- Top Header Navigation -->
-      <header class="bg-gray-800 text-white dark:bg-gray-950 px-6 py-4">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-          <h1 class="text-2xl font-bold mb-2 sm:mb-0">Qrush Dashboard</h1>
+      <!-- Toast Container -->
+      <div id="toastContainer" class="fixed top-4 left-4 z-50 space-y-2"></div>
+      <!-- Header -->
+      <header class="bg-light-surface dark:bg-dark-surface px-6 py-4 shadow">
+        <div class="flex justify-between items-center">
+          <h1 class="text-2xl font-bold">🌀 Qrush</h1>
 
-          <nav class="flex flex-wrap gap-3 text-sm">
-            <a href="/qrush/metrics" class="hover:underline">All Queues</a>
-            <a href="/qrush/metrics/extras/dead" class="hover:underline">Dead</a>
-            <a href="/qrush/metrics/extras/delayed" class="hover:underline">Delayed</a>
-            <a href="/qrush/metrics/extras/scheduled" class="hover:underline">Scheduled</a>
-            <a href="/qrush/metrics/extras/workers" class="hover:underline">Workers</a>
-            <a href="/qrush/metrics/extras/summary" class="hover:underline">Summary</a>
-            <button
-              id="toggleDarkMode"
-              class="ml-4 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
-            >
-              Toggle Dark Mode
-            </button>
+          <!-- Hamburger for mobile -->
+          <button class="sm:hidden text-xl focus:outline-none" id="menuToggle">
+            &#9776;
+          </button>
+
+          <!-- Navigation -->
+          <nav id="navMenu" class="hidden sm:flex gap-4 text-sm">
+            <a href="/qrush/metrics" class="hover:text-light-accent dark:hover:text-dark-hover">Queues</a>
+            <a href="/qrush/metrics/extras/dead" class="hover:text-light-accent dark:hover:text-dark-hover">Dead</a>
+            <a href="/qrush/metrics/extras/delayed" class="hover:text-light-accent dark:hover:text-dark-hover">Delayed</a>
+            <a href="/qrush/metrics/extras/scheduled" class="hover:text-light-accent dark:hover:text-dark-hover">Scheduled</a>
+            <a href="/qrush/metrics/extras/workers" class="hover:text-light-accent dark:hover:text-dark-hover">Workers</a>
+            <a href="/qrush/metrics/extras/summary" class="hover:text-light-accent dark:hover:text-dark-hover">Summary</a>
           </nav>
+
+          <!-- Toggle Theme Switch -->
+        <label class="relative inline-flex items-center cursor-pointer ml-4">
+          <input type="checkbox" value="" id="toggleDarkMode" class="sr-only peer" />
+          <div class="w-11 h-6 bg-light-muted peer-focus:outline-none rounded-full peer dark:bg-dark-border peer-checked:bg-light-accent dark:peer-checked:bg-dark-accent transition-colors"></div>
+          <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-full peer-checked:bg-white dark:peer-checked:bg-dark-text"></div>
+          <span class="ml-3 text-sm font-medium text-light-text dark:text-dark-text"></span>
+        </label>
+
+        </div>
+
+        <!-- Mobile Nav -->
+        <div id="mobileMenu" class="sm:hidden mt-4 hidden flex-col gap-2 text-sm">
+          <a href="/qrush/metrics" class="hover:text-light-accent dark:hover:text-dark-hover">All Queues</a>
+          <a href="/qrush/metrics/extras/dead" class="hover:text-light-accent dark:hover:text-dark-hover">Dead</a>
+          <a href="/qrush/metrics/extras/delayed" class="hover:text-light-accent dark:hover:text-dark-hover">Delayed</a>
+          <a href="/qrush/metrics/extras/scheduled" class="hover:text-light-accent dark:hover:text-dark-hover">Scheduled</a>
+          <a href="/qrush/metrics/extras/workers" class="hover:text-light-accent dark:hover:text-dark-hover">Workers</a>
+          <a href="/qrush/metrics/extras/summary" class="hover:text-light-accent dark:hover:text-dark-hover">Summary</a>
         </div>
       </header>
 
       <!-- Main Content -->
-      <main class="flex-1 p-6 bg-white dark:bg-gray-900">
+      <main class="flex-1 p-6 bg-light-background dark:bg-dark-background">
         {% block content %}{% endblock content %}
       </main>
+
+      <!-- Footer -->
+      <footer class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted text-center py-3 mt-auto text-sm">
+        Powered by
+        <a href="https://snmmaurya.com/solutions/qrush" target="_blank" class="underline hover:text-light-accent dark:hover:text-dark-hover">SNM</a>
+        &copy; 2025
+      </footer>
     </div>
 
+    <!-- Script -->
     <script>
-      const toggleBtn = document.getElementById('toggleDarkMode');
-      toggleBtn.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-      });
+    const toggleDark = document.getElementById('toggleDarkMode');
+    const htmlEl = document.documentElement;
+    const menuToggle = document.getElementById('menuToggle');
+    const mobileMenu = document.getElementById('mobileMenu');
 
-      if (localStorage.theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else if (localStorage.theme === 'light') {
-        document.documentElement.classList.remove('dark');
-      }
-    </script>
+    // Set initial theme based on localStorage (default: light)
+    if (localStorage.theme === 'dark') {
+      htmlEl.classList.add('dark');
+      if (toggleDark) toggleDark.checked = true;
+    } else {
+      htmlEl.classList.remove('dark'); // enforce light mode
+      localStorage.theme = 'light'; // set default in localStorage
+      if (toggleDark) toggleDark.checked = false;
+    }
+
+    // Toggle dark/light theme
+    if (toggleDark) {
+      toggleDark.addEventListener('change', () => {
+        const isDark = toggleDark.checked;
+        htmlEl.classList.toggle('dark', isDark);
+        localStorage.theme = isDark ? 'dark' : 'light';
+      });
+    }
+
+    // Mobile hamburger toggle
+    if (menuToggle && mobileMenu) {
+      menuToggle.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+      });
+    }
+  </script>
+
+
+
+  <script>
+    function showToast(message, type = "success", reloadAfter = true) {
+      const toastContainer = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+
+      const colorClasses =
+        type === "error"
+          ? "bg-red-600 text-white"
+          : type === "info"
+          ? "bg-blue-600 text-white"
+          : "bg-green-600 text-white";
+
+      toast.className = `toast ${colorClasses} px-4 py-2 rounded mb-2 transition-opacity duration-300`;
+      toast.textContent = message;
+
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0");
+        setTimeout(() => {
+          toast.remove();
+          if (reloadAfter) window.location.reload();
+        }, 300);
+      }, 3000);
+    }
+  </script>
+
+
   </body>
 </html>

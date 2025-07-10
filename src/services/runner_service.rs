@@ -16,7 +16,8 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
         let shutdown = shutdown.clone();
 
         tokio::spawn(async move {
-            let mut error_message: Option<String> = None; // <-- Move here
+            let mut error_message: Option<String> = None;
+            let today = Utc::now().date_naive().format("%Y-%m-%d").to_string();
 
             loop {
                 if shutdown.notified().now_or_never().is_some() {
@@ -66,6 +67,12 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                                         let _: () = conn.incr("snm:qrush:success", 1).await.unwrap_or_default();
                                         // Track success jobs
                                         let _: () = conn.rpush(format!("snm:success:{}", queue), &job_id).await.unwrap_or_default();
+
+                                        let key = format!("snm:stats:jobs:{}", today);
+                                        // increment daily success counter
+                                        let _: () = conn.incr(&key, 1).await.unwrap_or_default();
+                                        let _: () = conn.incr("snm:qrush:total_jobs", 1).await.unwrap_or_default();
+
                                     }
                                     Err(err) => {
                                         let _ = job.on_error(&err).await;
@@ -92,7 +99,7 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                     if !handled {
                         let mut hset_data = vec![
                             ("status", "failed".to_string()),
-                            ("completed_at", Utc::now().to_rfc3339()),
+                            ("failed_at", Utc::now().to_rfc3339()),
                             ("queue", queue.clone()),
                             ("failed_at", Utc::now().to_rfc3339()),
                         ];
@@ -101,8 +108,13 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                             hset_data.push(("error", emsg.clone()));
                         }
 
+                        let fail_key = format!("snm:stats:jobs:{}:failed", today);
+                        // increment daily failed counter
+                        let _: () = conn.incr(&fail_key, 1).await.unwrap_or_default();
+
+
                         let _: () = conn.hset_multiple(&job_key, &hset_data).await.unwrap_or_default();
-                        let _: () = conn.incr("snm:qrush:failed", 1).await.unwrap_or_default();
+                        
                         let _: Result<(), _> = conn.lpush(
                             format!("snm:logs:{}", queue),
                             format!("[{}] ❌ Job {} failed", Utc::now(), job_id),
@@ -112,6 +124,7 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
                         let _: () = conn.hset(&job_key, "job_name", jobs.keys().next().unwrap_or(&"unknown")).await.unwrap_or_default();
                         // Track failed jobs
                         let _: () = conn.rpush(format!("snm:failed:{}", queue), &job_id).await.unwrap_or_default();
+                        let _: () = conn.incr("snm:qrush:failed", 1).await.unwrap_or_default();
                     }
                 }
 
@@ -119,10 +132,6 @@ pub async fn start_worker_pool(queue: &str, concurrency: usize) {
             }
         });
     }
-
-
-
-
 }
 
 

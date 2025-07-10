@@ -13,12 +13,9 @@ use crate::utils::renderer::paginate_jobs;
 use crate::utils::constants::{
     DEFAULT_PAGE,
     DEFAULT_LIMIT,
-    PREFIX_JOB,
     DELAYED_JOBS_KEY,
     PREFIX_QUEUE,
 };
-
-
 
 #[derive(Deserialize)]
 pub struct MetricsQuery {
@@ -374,32 +371,50 @@ pub async fn job_action(payload: web::Json<serde_json::Value>) -> impl Responder
 
     match action {
         "delete" => {
-            let _: () = conn.del(&job_key).await.unwrap_or_default();
-            let _: () = conn.lpush("snm:logs:default", format!("[{}] 🗑️ Job {} deleted", Utc::now(), job_id)).await.unwrap_or_default();
-            let _: () = conn.ltrim("snm:logs:default", 0, 99).await.unwrap_or_default();
-            HttpResponse::Ok().json(json!({"status": "deleted"}))
-        },
-        "retry" | "queue" => {
-            if let Ok(data) = conn.get::<_, String>(&job_key).await {
-                let queue: String = conn.hget(&job_key, "queue").await.unwrap_or("default".to_string());
-
-                let _: () = conn.hset_multiple(&job_key, &[
-                    ("status", "queued"),
-                    ("retry_at", &Utc::now().to_rfc3339()),
-                ]).await.unwrap_or_default();
-
-                let _: () = conn.hdel(&job_key, &["failed_at", "completed_at"]).await.unwrap_or_default();
-
-                let _: () = conn.rpush(format!("snm:queue:{}", queue), data).await.unwrap_or_default();
-
-                HttpResponse::Ok().json(json!({"status": "retried", "queue": queue}))
+            if conn.exists(&job_key).await.unwrap_or(false) {
+                let _: () = conn.del(&job_key).await.unwrap_or_default();
+                let _: () = conn.lpush("snm:logs:default", format!("[{}] 🗑️ Job {} deleted", Utc::now(), job_id)).await.unwrap_or_default();
+                let _: () = conn.ltrim("snm:logs:default", 0, 99).await.unwrap_or_default();
+                HttpResponse::Ok().json(json!({"status": "deleted"}))
             } else {
                 HttpResponse::NotFound().json(json!({"error": "job not found"}))
             }
+        },
+        "retry" | "queue" => {
+            let exists: bool = conn.exists(&job_key).await.unwrap_or(false);
+            if !exists {
+                return HttpResponse::NotFound().json(json!({ "error": "job not found" }));
+            }
+
+            // Fetch queue name from the job
+            let queue: String = conn.hget(&job_key, "queue").await.unwrap_or_else(|_| "default".to_string());
+            let queue_key = format!("{PREFIX_QUEUE}:{}", queue);
+
+            // Always remove job from delayed_jobs if present
+            let _: () = conn.zrem(DELAYED_JOBS_KEY, &job_id).await.unwrap_or_default();
+
+            // Also remove it from the Redis queue (avoid duplicates)
+            let _: () = conn.lrem(&queue_key, 0, &job_id).await.unwrap_or_default();
+
+            // Push job back to the correct queue
+            let _: () = conn.rpush(&queue_key, &job_id).await.unwrap_or_default();
+
+            // Update job metadata
+            let _: () = conn.hset_multiple(&job_key, &[
+                ("status", "queued"),
+                ("retry_at", &Utc::now().to_rfc3339()),
+            ]).await.unwrap_or_default();
+
+            // Remove any stale timestamps
+            let _: () = conn.hdel(&job_key, &["failed_at", "completed_at", "run_at"]).await.unwrap_or_default();
+
+            HttpResponse::Ok().json(json!({ "status": "retried", "queue": queue }))
         }
+
         _ => HttpResponse::BadRequest().json(json!({"error": "invalid action"})),
     }
 }
+
 
 
 pub async fn get_metrics_summary() -> impl Responder {
@@ -409,6 +424,7 @@ pub async fn get_metrics_summary() -> impl Responder {
     };
 
     let total_jobs: usize = conn.get("snm:qrush:total_jobs").await.unwrap_or(0);
+    let success_jobs: usize = conn.get("snm:qrush:success").await.unwrap_or(0);
     let failed_jobs: usize = conn.get("snm:qrush:failed").await.unwrap_or(0);
 
     let queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
@@ -421,35 +437,94 @@ pub async fn get_metrics_summary() -> impl Responder {
     let worker_keys: Vec<String> = conn.keys("snm:worker:*").await.unwrap_or_default();
     let active_workers = worker_keys.len();
 
-    // REAL chart data from last 7 days
+    // Collect last 7 days stats
     let mut chart_labels = Vec::new();
-    let mut chart_data = Vec::new();
+    let mut chart_success = Vec::new();
+    let mut chart_failed = Vec::new();
 
     for i in (0..7).rev() {
         let day = Utc::now().date_naive() - Duration::days(i);
         let date_str = day.format("%Y-%m-%d").to_string();
-        let redis_key = format!("snm:stats:jobs:{}", date_str);
 
-        let count: usize = conn.get(&redis_key).await.unwrap_or(0);
+        let total_key = format!("snm:stats:jobs:{}", date_str);
+        let failed_key = format!("snm:stats:jobs:{}:failed", date_str);
+
+        let total: usize = conn.get(&total_key).await.unwrap_or(0);
+        let failed: usize = conn.get(&failed_key).await.unwrap_or(0);
+        let success = total.saturating_sub(failed);
+
         chart_labels.push(day.format("%a").to_string()); // "Mon", "Tue", etc.
-        chart_data.push(count);
+        chart_success.push(success);
+        chart_failed.push(failed);
     }
 
     let mut ctx = Context::new();
     ctx.insert("title", "Metrics Summary");
     ctx.insert("stats", &json!({
         "total_jobs": total_jobs,
+        "success_jobs": success_jobs,
         "failed_jobs": failed_jobs,
         "scheduled_jobs": scheduled_jobs,
         "active_workers": active_workers
     }));
     ctx.insert("chart", &json!({
         "labels": chart_labels,
-        "data": chart_data
+        "success": chart_success,
+        "failed": chart_failed
     }));
 
     render_template("summary.html.tera", ctx).await
 }
+
+
+// pub async fn get_metrics_summary() -> impl Responder {
+//     let mut conn = match get_redis_connection().await {
+//         Ok(c) => c,
+//         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
+//     };
+
+//     let total_jobs: usize = conn.get("snm:qrush:total_jobs").await.unwrap_or(0);
+//     let failed_jobs: usize = conn.get("snm:qrush:failed").await.unwrap_or(0);
+
+//     let queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
+//     let mut scheduled_jobs = 0;
+//     for queue in &queues {
+//         let len: usize = conn.llen(format!("snm:queue:{}", queue)).await.unwrap_or(0);
+//         scheduled_jobs += len;
+//     }
+
+//     let worker_keys: Vec<String> = conn.keys("snm:worker:*").await.unwrap_or_default();
+//     let active_workers = worker_keys.len();
+
+//     // REAL chart data from last 7 days
+//     let mut chart_labels = Vec::new();
+//     let mut chart_data = Vec::new();
+
+//     for i in (0..7).rev() {
+//         let day = Utc::now().date_naive() - Duration::days(i);
+//         let date_str = day.format("%Y-%m-%d").to_string();
+//         let redis_key = format!("snm:stats:jobs:{}", date_str);
+
+//         let count: usize = conn.get(&redis_key).await.unwrap_or(0);
+//         chart_labels.push(day.format("%a").to_string()); // "Mon", "Tue", etc.
+//         chart_data.push(count);
+//     }
+
+//     let mut ctx = Context::new();
+//     ctx.insert("title", "Metrics Summary");
+//     ctx.insert("stats", &json!({
+//         "total_jobs": total_jobs,
+//         "failed_jobs": failed_jobs,
+//         "scheduled_jobs": scheduled_jobs,
+//         "active_workers": active_workers
+//     }));
+//     ctx.insert("chart", &json!({
+//         "labels": chart_labels,
+//         "data": chart_data
+//     }));
+
+//     render_template("summary.html.tera", ctx).await
+// }
 
 
 
