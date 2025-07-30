@@ -15,6 +15,7 @@ homepage = "https://github.com/snmmaurya/qrush"
 
 [dependencies]
 actix-web = "4.0"
+# cluster support for redis
 redis = { version = "0.25", features = ["tokio-native-tls-comp", "cluster"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
