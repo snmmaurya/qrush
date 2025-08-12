@@ -1,38 +1,33 @@
 {% extends "layout.html.tera" %}
-
-{% block title %}Workers{% endblock title %}
-
 {% block content %}
-  <div class="bg-light-surface dark:bg-dark-surface shadow rounded-xl p-6">
-    <h2 class="text-xl font-semibold mb-4 text-light-text dark:text-dark-text">Active Workers</h2>
+<h1 class="text-2xl font-semibold mb-4">{{ title | default(value="Workers") }}</h1>
 
-    {% if workers | length == 0 %}
-      <p class="text-muted dark:text-dark-muted">No active workers detected.</p>
-    {% else %}
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-light-border dark:divide-dark-border text-sm text-left">
-          <thead class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted">
-            <tr>
-              <th class="px-4 py-2">Worker ID</th>
-              <th class="px-4 py-2">Queues</th>
-              <th class="px-4 py-2">Last Seen</th>
-              <th class="px-4 py-2">Hostname</th>
-              <th class="px-4 py-2">PID</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-light-border dark:divide-dark-border">
-            {% for w in workers %}
-              <tr class="hover:bg-light-hover dark:hover:bg-dark-hover">
-                <td class="px-4 py-2 font-mono text-light-accent dark:text-dark-hover">{{ w.id }}</td>
-                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ w.queues | join(sep=", ") }}</td>
-                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ w.last_seen }}</td>
-                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ w.hostname }}</td>
-                <td class="px-4 py-2 text-light-text dark:text-dark-text">{{ w.pid }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% endif %}
-  </div>
+<div class="card overflow-hidden">
+  <table class="table">
+    <thead class="bg-slate-50/60 dark:bg-slate-900/30">
+      <tr>
+        <th class="th">Worker ID</th>
+        <th class="th">Hostname</th>
+        <th class="th">PID</th>
+        <th class="th">Queues</th>
+        <th class="th">Last seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in workers %}
+      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-900/30">
+        <td class="td font-mono text-xs">{{ w.id }}</td>
+        <td class="td">{{ w.hostname }}</td>
+        <td class="td">{{ w.pid }}</td>
+        <td class="td">{{ w.queues | join(sep=", ") }}</td>
+        <td class="td">{{ w.last_seen }}</td>
+      </tr>
+      {% else %}<tr>
+      <td class="td text-center font-bold text-red-600 bg-yellow-100 py-2" colspan="5">
+        COMING SOON! No workers online.
+      </td>
+      </tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock content %}

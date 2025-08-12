@@ -1,61 +1,67 @@
 {% extends "layout.html.tera" %}
-
-{% block title %}Metrics: {{ queue }}{% endblock title %}
-
 {% block content %}
-<h2 class="text-xl font-semibold mb-4 text-light-text dark:text-dark-text">Queue: {{ queue }}</h2>
+<h1 class="text-2xl font-semibold mb-4">{{ title | default(value="Queue") }}</h1>
 
-<table class="min-w-full border border-light-border dark:border-dark-border text-sm text-left mb-6">
-  <thead class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted">
-    <tr>
-      <th class="px-4 py-2 text-left text-sm font-semibold">Job ID</th>
-      <th class="px-4 py-2 text-left text-sm font-semibold">Status</th>
-      <th class="px-4 py-2 text-left text-sm font-semibold">Created At</th>
-      <th class="px-4 py-2 text-left text-sm font-semibold">Actions</th>
-    </tr>
-  </thead>
-  <tbody class="divide-y divide-light-border dark:divide-dark-border">
-    {% for job in jobs %}
-    <tr class="hover:bg-light-hover dark:hover:bg-dark-hover">
-      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.id }}</td>
-      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.status }}</td>
-      <td class="px-4 py-2 text-sm text-light-text dark:text-dark-text">{{ job.created_at }}</td>
-      <td class="px-4 py-2 text-sm">
-        <form method="POST" action="/qrush/metrics/job/action" class="inline-flex gap-2">
-          <input type="hidden" name="job_id" value="{{ job.id }}">
-          <button type="submit" name="action" value="retry" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">Retry</button>
-          <button type="submit" name="action" value="delete" class="bg-red-600 text-white px-2 py-1 rounded text-xs hover:bg-red-700">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr>
-      <td colspan="4" class="px-4 py-2 text-sm text-center text-muted dark:text-dark-muted">No jobs in queue</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<!-- Pagination -->
-<div class="flex items-center justify-between text-sm">
-  {% if page is defined %}
-    <div class="flex justify-between items-center mt-4 w-full">
-      <div class="text-muted dark:text-dark-muted">
-        Showing {{ page.start }} to {{ page.end }} of {{ page.total }} queues
-      </div>
-      <div class="space-x-2">
-        {% if page.has_prev %}
-          <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border border-light-border dark:border-dark-border rounded text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover">
-            Prev
-          </a>
-        {% endif %}
-        {% if page.has_next %}
-          <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border border-light-border dark:border-dark-border rounded text-light-text dark:text-dark-text hover:bg-light-hover dark:hover:bg-dark-hover">
-            Next
-          </a>
-        {% endif %}
-      </div>
-    </div>
-  {% endif %}
+<div class="card overflow-hidden">
+  <table class="table">
+    <thead class="bg-slate-50/60 dark:bg-slate-900/30">
+      <tr>
+        <th class="th">ID</th>
+        <th class="th">Type</th>
+        <th class="th">Status</th>
+        <th class="th">Created</th>
+        <th class="th">Run at</th>
+        <th class="th">Failed at</th>
+        <th class="th">Error</th>
+        <th class="th">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-900/30">
+        <td class="td font-mono text-xs">{{ job.id }}</td>
+        <td class="td">{{ job.job_type }}</td>
+        <td class="td">
+          {% set s = job.status | default(value="queued") %}
+          <span class="{% if s == "success" %}chip-green{% elif s == "failed" %}chip-red{% elif s == "queued" %}chip-sky{% else %}chip-amber{% endif %}">{{ s }}</span>
+        </td>
+        <td class="td">{{ job.created_at | default(value="—") }}</td>
+        <td class="td">{{ job.run_at | default(value="—") }}</td>
+        <td class="td">{{ job.failed_at | default(value="—") }}</td>
+        <td class="td max-w-[20rem] truncate" title="{{ job.error | default(value="") }}">{{ job.error | default(value="") }}</td>
+        <td class="td">
+          <button class="btn" onclick="jobAction('retry','{{ job.id }}')">Retry</button>
+          <button class="btn-danger" onclick="jobAction('delete','{{ job.id }}')">Delete</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td class="td" colspan="8">No jobs.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+
+{% if page is defined %}
+  {% set prev = page.current - 1 %}
+  {% set next = page.current + 1 %}
+  <div class="mt-4 flex items-center justify-between text-sm">
+    <div class="text-slate-500 dark:text-slate-400">Showing {{ page.start }}–{{ page.end }} of {{ page.total }}</div>
+    <div class="flex gap-2">
+      <a class="btn {% if not page.has_prev %}opacity-50 pointer-events-none{% endif %}" href="?page={{ prev }}&{{ page.query }}">Prev</a>
+      <a class="btn {% if not page.has_next %}opacity-50 pointer-events-none{% endif %}" href="?page={{ next }}&{{ page.query }}">Next</a>
+    </div>
+  </div>
+{% endif %}
+
+<script>
+async function jobAction(action, job_id){
+  try{
+    const r = await fetch('/metrics/jobs/action', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action, job_id })
+    });
+    if(r.ok){ location.reload(); } else { alert('Action failed'); }
+  } catch(e){ alert('Action error'); }
+}
+</script>
 {% endblock content %}

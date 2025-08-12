@@ -1,132 +1,55 @@
 {% extends "layout.html.tera" %}
-
-{% block title %}Delayed Jobs{% endblock title %}
-
 {% block content %}
-  <div class="bg-white shadow rounded-lg p-6 dark:bg-gray-900 dark:text-white">
-    <h2 class="text-xl font-semibold mb-4">Delayed Jobs</h2>
+<h1 class="text-2xl font-semibold mb-4">{{ title | default(value="Delayed Jobs") }}</h1>
 
-    {% if jobs | length == 0 %}
-      <p class="text-gray-400">No delayed jobs found.</p>
-    {% else %}
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-          <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold">
-            <tr>
-              <th class="px-4 py-2 text-left">Job ID</th>
-              <th class="px-4 py-2 text-left">Queue</th>
-              <th class="px-4 py-2 text-left">Run At</th>
-              <th class="px-4 py-2 text-left">Args</th>
-              <th class="px-4 py-2 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-            {% for job in jobs %}
-              <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-100">
-                <td class="px-4 py-2 font-mono text-blue-700 dark:text-blue-300">{{ job.id }}</td>
-                <td class="px-4 py-2">{{ job.queue | default(value="N/A") }}</td>
-                <td class="px-4 py-2">{{ job.run_at | default(value="N/A") }}</td>
-                <td class="px-4 py-2 whitespace-nowrap max-w-xs">
-                  <pre class="text-xs text-gray-600 dark:text-gray-400">{{ job.payload | json_encode | safe }}</pre>
-                </td>
-                <td class="px-4 py-2 space-x-2">
-                  <button onclick="retryJob('{{ job.id }}')" class="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600 transition">
-                    Run Now
-                  </button>
-                  <button onclick="deleteJob('{{ job.id }}')" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition">
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% endif %}
-  </div>
+<div class="card overflow-hidden">
+  <table class="table">
+    <thead class="bg-slate-50/60 dark:bg-slate-900/30">
+      <tr>
+        <th class="th">ID</th>
+        <th class="th">Type</th>
+        <th class="th">Status</th>
+        <th class="th">Run at</th>
+        <th class="th">Error</th>
+        <th class="th">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      {% set s = job.status | default(value="queued") %}
+      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-900/30">
+        <td class="td font-mono text-xs">{{ job.id }}</td>
+        <td class="td">{{ job.job_type }}</td>
+        <td class="td"><span class="{% if s == "failed" %}chip-red{% else %}chip-amber{% endif %}">{{ s }}</span></td>
+        <td class="td">{{ job.run_at | default(value="—") }}</td>
+        <td class="td max-w-[20rem] truncate" title="{{ job.error | default(value='') }}">{{ job.error | default(value='') }}</td>
+        <td class="td">
+          <button class="btn" onclick="jobAction('queue','{{ job.id }}')">Queue now</button>
+          <button class="btn-danger" onclick="jobAction('delete','{{ job.id }}')">Delete</button>
+        </td>
+      </tr>
+      {% else %}<tr><td class="td" colspan="6">No delayed jobs.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
 
-  <!-- Pagination -->
-  {% if page is defined %}
-    <div class="flex flex-col sm:flex-row justify-between items-center mt-4 text-sm text-gray-600 dark:text-gray-300 gap-2">
-      <div>
-        Showing {{ page.start }} to {{ page.end }} of {{ page.total }} jobs
-      </div>
-      <div class="space-x-2">
-        {% if page.has_prev %}
-          <a href="?page={{ page.current - 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Prev</a>
-        {% endif %}
-        {% if page.has_next %}
-          <a href="?page={{ page.current + 1 }}&{{ page.query }}" class="px-3 py-1 border rounded dark:text-white dark:border-gray-600">Next</a>
-        {% endif %}
-      </div>
+{% if page is defined %}
+  {% set prev = page.current - 1 %}{% set next = page.current + 1 %}
+  <div class="mt-4 flex items-center justify-between text-sm">
+    <div class="text-slate-500 dark:text-slate-400">Showing {{ page.start }}–{{ page.end }} of {{ page.total }}</div>
+    <div class="flex gap-2">
+      <a class="btn {% if not page.has_prev %}opacity-50 pointer-events-none{% endif %}" href="?page={{ prev }}">Prev</a>
+      <a class="btn {% if not page.has_next %}opacity-50 pointer-events-none{% endif %}" href="?page={{ next }}">Next</a>
     </div>
-  {% endif %}
+  </div>
+{% endif %}
 
-  <!-- Action Scripts -->
-  <script>
-    async function retryJob(jobId) {
-      const confirmed = confirm("Are you sure you want to run this job now?");
-      if (!confirmed) return;
-
-      try {
-        const res = await fetch("/qrush/metrics/jobs/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "queue", job_id: jobId })
-        });
-
-        const result = await res.json();
-
-        if (res.ok) {
-          showToast("✅ Job queued successfully", "success");
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast(`❌ ${result?.error || "Failed to queue job"}`, "error");
-        }
-      } catch (error) {
-        showToast(`❌ Error: ${error.message}`, "error");
-      }
-    }
-
-    async function deleteJob(jobId) {
-      const confirmed = confirm("Are you sure you want to delete this job?");
-      if (!confirmed) return;
-
-      try {
-        const res = await fetch("/qrush/metrics/jobs/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "delete", job_id: jobId })
-        });
-
-        const result = await res.json();
-
-        if (res.ok) {
-          showToast("🗑️ Job deleted successfully", "success");
-          setTimeout(() => location.reload(), 1000);
-        } else {
-          showToast(`❌ ${result?.error || "Failed to delete job"}`, "error");
-        }
-      } catch (error) {
-        showToast(`❌ Error: ${error.message}`, "error");
-      }
-    }
-
-    // Fallback toast if not defined globally
-    function showToast(message, type = "success", callback) {
-      const container = document.getElementById("toastContainer") || document.body;
-      const toast = document.createElement("div");
-      const color = type === "error" ? "bg-red-600" : "bg-green-600";
-      toast.className = `fixed bottom-6 left-6 px-4 py-2 rounded text-white ${color} shadow-lg z-50 transition`;
-      toast.innerText = message;
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.style.opacity = "0";
-        setTimeout(() => {
-          toast.remove();
-          if (callback) callback();
-        }, 300);
-      }, 2500);
-    }
-  </script>
+<script>
+async function jobAction(action, job_id){
+  try{
+    const r = await fetch('/metrics/jobs/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action, job_id})});
+    if(r.ok){ location.reload(); } else { alert('Action failed'); }
+  }catch(e){ alert('Action error'); }
+}
+</script>
 {% endblock content %}

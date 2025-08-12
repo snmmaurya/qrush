@@ -1,16 +1,8 @@
 {% extends "layout.html.tera" %}
-
-{% block title %}404 Not Found{% endblock title %}
-
 {% block content %}
-<div class="flex items-center justify-center min-h-screen bg-gray-100">
-  <div class="text-center space-y-4">
-    <h1 class="text-6xl font-bold text-blue-600">404</h1>
-    <p class="text-2xl text-gray-700">Page Not Found</p>
-    <p class="text-gray-500">The page you are looking for might have been removed or doesn’t exist.</p>
-    <a href="/" class="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-      Go to Home
-    </a>
-  </div>
+<div class="card p-8 text-center">
+  <div class="text-6xl mb-2">404</div>
+  <p class="text-slate-600 dark:text-slate-400 mb-6">Page not found.</p>
+  <a class="btn-primary" href="/metrics">Back to metrics</a>
 </div>
 {% endblock content %}

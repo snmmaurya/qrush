@@ -1,6 +1,6 @@
 [package]
 name = "qrush"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["SNM Maurya <inxmaurya@gmail.com>"]
 description = "Lightweight Job Queue for Rust (Actix + Redis)"

@@ -1,90 +1,36 @@
 {% extends "layout.html.tera" %}
-
-{% block title %}Dashboard Summary{% endblock title %}
-
 {% block content %}
-  <div class="space-y-6">
+<h1 class="text-2xl font-semibold mb-4">{{ title | default(value="Metrics Summary") }}</h1>
 
-    <!-- Top Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
-        <h3 class="text-muted dark:text-dark-muted text-sm">Total Jobs</h3>
-        <p class="text-2xl font-semibold text-light-accent dark:text-dark-accent">{{ stats.total_jobs }}</p>
-      </div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <div class="kpi"><div class="kpi-title">Total</div><div class="kpi-value">{{ stats.total_jobs }}</div></div>
+  <div class="kpi"><div class="kpi-title">Success</div><div class="kpi-value">{{ stats.success_jobs }}</div></div>
+  <div class="kpi"><div class="kpi-title">Failed</div><div class="kpi-value">{{ stats.failed_jobs }}</div></div>
+  <div class="kpi"><div class="kpi-title">Scheduled</div><div class="kpi-value">{{ stats.scheduled_jobs }}</div></div>
+  <div class="kpi"><div class="kpi-title">Active Workers</div><div class="kpi-value">{{ stats.active_workers }}</div></div>
+</div>
 
-      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
-        <h3 class="text-muted dark:text-dark-muted text-sm">Failed Jobs</h3>
-        <p class="text-2xl font-semibold text-red-600 dark:text-dark-error">{{ stats.failed_jobs }}</p>
-      </div>
+<div class="card p-4">
+  <h2 class="text-sm mb-3 text-slate-600 dark:text-slate-300">Last 7 days</h2>
+  <canvas id="jobsChart" height="80"></canvas>
+</div>
 
-      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
-        <h3 class="text-muted dark:text-dark-muted text-sm">Scheduled Jobs</h3>
-        <p class="text-2xl font-semibold text-yellow-600 dark:text-yellow-400">{{ stats.scheduled_jobs }}</p>
-      </div>
-
-      <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
-        <h3 class="text-muted dark:text-dark-muted text-sm">Active Workers</h3>
-        <p class="text-2xl font-semibold text-green-600 dark:text-dark-success">{{ stats.active_workers }}</p>
-      </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="bg-light-surface dark:bg-dark-surface rounded shadow p-4">
-      <h2 class="text-lg font-semibold mb-4 text-light-text dark:text-dark-text">Jobs Processed (Last 7 Days)</h2>
-      <canvas id="jobChart" height="100"></canvas>
-    </div>
-  </div>
-
-  <!-- Auto-refresh every 60s -->
-  <script>
-    setTimeout(() => location.reload(), 60000);
-  </script>
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const ctx = document.getElementById('jobChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: {{ chart.labels | json_encode() | safe }},
-        datasets: [
-          {
-            label: 'Success',
-            data: {{ chart.success | json_encode() | safe }},
-            backgroundColor: '#10B981' // original green
-          },
-          {
-            label: 'Failed',
-            data: {{ chart.failed | json_encode() | safe }},
-            backgroundColor: '#EF4444' // original red
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          tooltip: {
-            mode: 'index',
-            intersect: false
-          },
-          legend: {
-            position: 'top'
-          }
-        },
-        scales: {
-          x: {
-            stacked: true
-          },
-          y: {
-            beginAtZero: true,
-            stacked: true,
-            ticks: {
-              precision: 0
-            }
-          }
-        }
-      }
-    });
-  </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const labels = {{ chart.labels | json_encode | safe }};
+const success = {{ chart.success | json_encode | safe }};
+const failed = {{ chart.failed | json_encode | safe }};
+const ctx = document.getElementById('jobsChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      { label: 'Success', data: success, tension: .35 },
+      { label: 'Failed', data: failed, tension: .35 }
+    ]
+  },
+  options: { responsive: true, plugins: { legend: { position: 'top' } } }
+});
+</script>
 {% endblock content %}

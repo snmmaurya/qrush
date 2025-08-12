@@ -1,172 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>{% block title %}Qrush Metrics{% endblock title %}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://cdn.tailwindcss.com"></script>
+<html lang="en" class="h-full antialiased">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% if title %}{{ title }} · QRush{% else %}QRush Metrics{% endif %}</title>
 
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              dark: {
-                background: '#0D1B2A',
-                surface: '#1B263B',
-                accent: '#415A77',
-                hover: '#778DA9',
-                text: '#E0E1DD',
-                muted: '#A9B8C1',
-                border: '#2C3E50',
-              },
-              light: {
-                background: '#F4F9FF',
-                surface: '#EAF3FC',
-                accent: '#2F80ED',
-                hover: '#1C6DD0',
-                text: '#1B1F3B',
-                muted: '#5F6F8D',
-                border: '#D3E0EF',
-              }
-            }
-          }
-        }
-      };
-    </script>
-
-    <style>
-      html, body {
-        transition: background-color 0.3s ease, color 0.3s ease;
-      }
-      .toast {
-        @apply px-4 py-2 rounded shadow text-sm font-medium transition-opacity duration-300;
-      }
-    </style>
-  </head>
-
-  <body class="bg-light-background text-light-text dark:bg-dark-background dark:text-dark-text">
-    <div class="min-h-screen flex flex-col">
-      <!-- Toast Container -->
-      <div id="toastContainer" class="fixed top-4 left-4 z-50 space-y-2"></div>
-      <!-- Header -->
-      <header class="bg-light-surface dark:bg-dark-surface px-6 py-4 shadow">
-        <div class="flex justify-between items-center">
-          <h1 class="text-2xl font-bold">🌀 Qrush</h1>
-
-          <!-- Hamburger for mobile -->
-          <button class="sm:hidden text-xl focus:outline-none" id="menuToggle">
-            &#9776;
-          </button>
-
-          <!-- Navigation -->
-          <nav id="navMenu" class="hidden sm:flex gap-4 text-sm">
-            <a href="/qrush/metrics" class="hover:text-light-accent dark:hover:text-dark-hover">Queues</a>
-            <a href="/qrush/metrics/extras/dead" class="hover:text-light-accent dark:hover:text-dark-hover">Dead</a>
-            <a href="/qrush/metrics/extras/delayed" class="hover:text-light-accent dark:hover:text-dark-hover">Delayed</a>
-            <a href="/qrush/metrics/extras/scheduled" class="hover:text-light-accent dark:hover:text-dark-hover">Scheduled</a>
-            <a href="/qrush/metrics/extras/workers" class="hover:text-light-accent dark:hover:text-dark-hover">Workers</a>
-            <a href="/qrush/metrics/extras/summary" class="hover:text-light-accent dark:hover:text-dark-hover">Summary</a>
+  <!-- Tailwind CDN (no build step needed) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {} }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .container-px { @apply px-4 sm:px-6 lg:px-8; }
+      .card { @apply rounded-2xl border border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl shadow; }
+      .chip { @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full; }
+      .chip-green { @apply chip bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300; }
+      .chip-red { @apply chip bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300; }
+      .chip-amber { @apply chip bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300; }
+      .chip-sky { @apply chip bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300; }
+      .link { @apply text-slate-700 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white transition; }
+      .btn { @apply inline-flex items-center gap-2 rounded-xl px-3 py-1.5 border border-slate-300/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/60 hover:bg-slate-50 dark:hover:bg-slate-800; }
+      .btn-danger { @apply btn border-rose-300/60 hover:bg-rose-50 dark:hover:bg-rose-900/20; }
+      .btn-primary { @apply btn border-slate-300/60 ring-1 ring-slate-300/50; }
+      .table { @apply min-w-full text-sm; }
+      .th { @apply text-left font-semibold text-slate-600 dark:text-slate-300 px-3 py-2; }
+      .td { @apply px-3 py-2 border-t border-slate-200/60 dark:border-slate-800/60; }
+      .kpi { @apply card p-4; }
+      .kpi-title { @apply text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400; }
+      .kpi-value { @apply text-2xl font-semibold text-slate-900 dark:text-white; }
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+  <!-- Top gradient bar -->
+  <div class="sticky top-0 z-50 w-full">
+    <div class="absolute inset-0 h-16 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-80 dark:from-indigo-700 dark:via-violet-700 dark:to-fuchsia-700"></div>
+    <div class="relative">
+      <div class="container-px mx-auto max-w-7xl">
+        <div class="h-16 flex items-center rounded-b-2xl border border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl shadow">
+          <a href="/qrush/metrics" class="flex items-center gap-2 pl-3">
+            <span class="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-500 ring-2 ring-white/70 dark:ring-slate-900/60 shadow">
+              <!-- Logo image -->
+              <img src="https://snmmaurya.s3.ap-south-1.amazonaws.com/logo.png" alt="AdminX Logo" class="h-8 w-8 rounded-full shadow ring-2 ring-indigo-500/70">
+            </span>
+          </a>
+          <nav class="ml-auto flex items-center gap-4 pr-3">
+            <a class="link text-sm" href="/qrush/metrics">Queues</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/summary">Summary</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/scheduled">Scheduled</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/delayed">Delayed</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/dead">Dead</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/workers">Workers</a>
+            <button id="themeToggle" class="btn" title="Toggle theme">🌓</button>
           </nav>
-
-          <!-- Toggle Theme Switch -->
-        <label class="relative inline-flex items-center cursor-pointer ml-4">
-          <input type="checkbox" value="" id="toggleDarkMode" class="sr-only peer" />
-          <div class="w-11 h-6 bg-light-muted peer-focus:outline-none rounded-full peer dark:bg-dark-border peer-checked:bg-light-accent dark:peer-checked:bg-dark-accent transition-colors"></div>
-          <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-all peer-checked:translate-x-full peer-checked:bg-white dark:peer-checked:bg-dark-text"></div>
-          <span class="ml-3 text-sm font-medium text-light-text dark:text-dark-text"></span>
-        </label>
-
         </div>
-
-        <!-- Mobile Nav -->
-        <div id="mobileMenu" class="sm:hidden mt-4 hidden flex-col gap-2 text-sm">
-          <a href="/qrush/metrics" class="hover:text-light-accent dark:hover:text-dark-hover">All Queues</a>
-          <a href="/qrush/metrics/extras/dead" class="hover:text-light-accent dark:hover:text-dark-hover">Dead</a>
-          <a href="/qrush/metrics/extras/delayed" class="hover:text-light-accent dark:hover:text-dark-hover">Delayed</a>
-          <a href="/qrush/metrics/extras/scheduled" class="hover:text-light-accent dark:hover:text-dark-hover">Scheduled</a>
-          <a href="/qrush/metrics/extras/workers" class="hover:text-light-accent dark:hover:text-dark-hover">Workers</a>
-          <a href="/qrush/metrics/extras/summary" class="hover:text-light-accent dark:hover:text-dark-hover">Summary</a>
-        </div>
-      </header>
-
-      <!-- Main Content -->
-      <main class="flex-1 p-6 bg-light-background dark:bg-dark-background">
-        {% block content %}{% endblock content %}
-      </main>
-
-      <!-- Footer -->
-      <footer class="bg-light-surface dark:bg-dark-surface text-light-muted dark:text-dark-muted text-center py-3 mt-auto text-sm">
-        Powered by
-        <a href="https://snmmaurya.com/solutions/qrush" target="_blank" class="underline hover:text-light-accent dark:hover:text-dark-hover">SNM</a>
-        &copy; 2025
-      </footer>
+      </div>. 
     </div>
 
-    <!-- Script -->
+    <main class="container-px mx-auto max-w-7xl py-6">
+      {% block content %}{% endblock content %}
+    </main>
+
+    <footer class="relative mt-8 w-full">
+      <div class="absolute inset-x-0 -top-4 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 opacity-70"></div>
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div class="rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl shadow flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-4">
+          <p class="text-sm text-slate-600 dark:text-slate-400">
+            © {{ now() | date(format="%Y") }} <span class="font-semibold text-slate-900 dark:text-white">Qrysh</span>. All rights reserved.
+          </p>
+          <nav class="flex items-center gap-4 text-sm">
+            <a href="https://qrush.snmmaurya.com/privacy" class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">Privacy</a>
+            <span class="text-slate-300 dark:text-slate-600">•</span>
+            <a href="https://qrush.snmmaurya.com/terms" class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">Terms</a>
+            <span class="text-slate-300 dark:text-slate-600">•</span>
+            <a href="https://qrush.snmmaurya.com/support" class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">Support</a>
+            <span class="text-slate-300 dark:text-slate-600">•</span>
+            <a href="https://github.com/snmmaurya/qrush" class="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">Github</a>
+          </nav>
+        </div>
+      </div>
+    </footer>
+
     <script>
-    const toggleDark = document.getElementById('toggleDarkMode');
-    const htmlEl = document.documentElement;
-    const menuToggle = document.getElementById('menuToggle');
-    const mobileMenu = document.getElementById('mobileMenu');
-
-    // Set initial theme based on localStorage (default: light)
-    if (localStorage.theme === 'dark') {
-      htmlEl.classList.add('dark');
-      if (toggleDark) toggleDark.checked = true;
-    } else {
-      htmlEl.classList.remove('dark'); // enforce light mode
-      localStorage.theme = 'light'; // set default in localStorage
-      if (toggleDark) toggleDark.checked = false;
-    }
-
-    // Toggle dark/light theme
-    if (toggleDark) {
-      toggleDark.addEventListener('change', () => {
-        const isDark = toggleDark.checked;
-        htmlEl.classList.toggle('dark', isDark);
-        localStorage.theme = isDark ? 'dark' : 'light';
-      });
-    }
-
-    // Mobile hamburger toggle
-    if (menuToggle && mobileMenu) {
-      menuToggle.addEventListener('click', () => {
-        mobileMenu.classList.toggle('hidden');
-      });
-    }
-  </script>
-
-
-
-  <script>
-    function showToast(message, type = "success", reloadAfter = true) {
-      const toastContainer = document.getElementById("toastContainer");
-      const toast = document.createElement("div");
-
-      const colorClasses =
-        type === "error"
-          ? "bg-red-600 text-white"
-          : type === "info"
-          ? "bg-blue-600 text-white"
-          : "bg-green-600 text-white";
-
-      toast.className = `toast ${colorClasses} px-4 py-2 rounded mb-2 transition-opacity duration-300`;
-      toast.textContent = message;
-
-      toastContainer.appendChild(toast);
-
-      setTimeout(() => {
-        toast.classList.add("opacity-0");
-        setTimeout(() => {
-          toast.remove();
-          if (reloadAfter) window.location.reload();
-        }, 300);
-      }, 3000);
-    }
-  </script>
-
-
+      (function(){
+        const key='qrush-theme';
+        const saved = localStorage.getItem(key);
+        if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+        document.getElementById('themeToggle')?.addEventListener('click', () => {
+          document.documentElement.classList.toggle('dark');
+          localStorage.setItem(key, document.documentElement.classList.contains('dark') ? 'dark':'light');
+        });
+      })();
+    </script>
   </body>
 </html>
