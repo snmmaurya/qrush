@@ -302,7 +302,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by the RustAcean360 (Snm Maurya)**
+**Made with ❤️ by the rustacean360 (Snm Maurya)**
 
 [![GitHub stars](https://img.shields.io/github/stars/snmmaurya/qrush?style=social)](https://github.com/snmmaurya/qrush)
-[![Twitter Follow](https://img.shields.io/twitter/follow/qrush_framework?style=social)](https://twitter.com/qrush_framework)
+[![LinkedIn Follow](https://img.shields.io/badge/LinkedIn-Follow-blue?style=social&logo=linkedin)](https://www.linkedin.com/company/rustacean360)

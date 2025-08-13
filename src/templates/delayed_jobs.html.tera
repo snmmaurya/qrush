@@ -47,7 +47,7 @@
 <script>
 async function jobAction(action, job_id){
   try{
-    const r = await fetch('/metrics/jobs/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action, job_id})});
+    const r = await fetch('/qrush/metrics/jobs/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action, job_id})});
     if(r.ok){ location.reload(); } else { alert('Action failed'); }
   }catch(e){ alert('Action error'); }
 }

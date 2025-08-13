@@ -10,10 +10,10 @@
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-4">
       <div class="flex flex-wrap gap-2">
         <div class="text-sm text-white bg-green-600 px-3 py-1 rounded-lg">
-          ✅ Success Jobs: <strong>{{ stats.success_jobs }}</strong>
+          Success Jobs: <strong>{{ stats.success_jobs }}</strong>
         </div>
         <div class="text-sm text-white bg-red-600 px-3 py-1 rounded-lg">
-          ❌ Failed Jobs: <strong>{{ stats.failed_jobs }}</strong>
+          Failed Jobs: <strong>{{ stats.failed_jobs }}</strong>
         </div>
       </div>
 

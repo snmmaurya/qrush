@@ -56,7 +56,7 @@
 <script>
 async function jobAction(action, job_id){
   try{
-    const r = await fetch('/metrics/jobs/action', {
+    const r = await fetch('/qrush/metrics/jobs/action', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ action, job_id })
     });

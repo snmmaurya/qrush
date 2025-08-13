@@ -24,7 +24,7 @@
       </tr>
       {% else %}<tr>
       <td class="td text-center font-bold text-red-600 bg-yellow-100 py-2" colspan="5">
-        COMING SOON! No workers online.
+        This feature is under development!
       </td>
       </tr>{% endfor %}
     </tbody>
