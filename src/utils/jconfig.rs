@@ -7,8 +7,6 @@ use serde::Serialize;
 use crate::utils::rdconfig::get_redis_connection;
 use redis::AsyncCommands;
 
-
-
 #[derive(Serialize, Debug, Clone)]
 pub struct JobInfo {
     pub id: String,
@@ -23,14 +21,12 @@ pub struct JobInfo {
     pub failed_at: Option<String>,
 }
 
-
-
 pub fn to_job_info(job: &Box<dyn Job>, id: &str) -> JobInfo {
     JobInfo {
         id: id.to_string(),
         job_type: job.name().to_string(),
         queue: Some(job.queue().to_string()),
-        payload: Some("N/A".to_string()), // Replace with actual payload if needed
+        payload: Some("N/A".to_string()),
         status: None,
         created_at: None,
         updated_at: None,
@@ -40,15 +36,10 @@ pub fn to_job_info(job: &Box<dyn Job>, id: &str) -> JobInfo {
     }
 }
 
-
-
-
 pub fn extract_job_type(payload: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(payload).ok()?;
     v.get("job_type")?.as_str().map(String::from)
 }
-
-
 
 pub async fn deserialize_job(payload: String) -> Option<Box<dyn Job>> {
     let job_type = extract_job_type(&payload)?;
@@ -62,15 +53,13 @@ pub async fn deserialize_job(payload: String) -> Option<Box<dyn Job>> {
     }
 }
 
-
-
 pub async fn fetch_job_info(job_id: &str) -> Result<Option<JobInfo>> {
     let job_key = format!("snm:job:{job_id}");
     let mut conn = get_redis_connection().await?;
 
     let map: redis::RedisResult<redis::Value> = conn.hgetall(&job_key).await;
 
-    if let Ok(redis::Value::Bulk(items)) = map {
+    if let Ok(redis::Value::Array(items)) = map {  // Changed from Bulk to Array
         if items.is_empty() {
             return Ok(None);
         }
@@ -89,7 +78,7 @@ pub async fn fetch_job_info(job_id: &str) -> Result<Option<JobInfo>> {
         };
 
         for chunk in items.chunks(2) {
-            if let [redis::Value::Data(field), redis::Value::Data(value)] = chunk {
+            if let [redis::Value::BulkString(field), redis::Value::BulkString(value)] = chunk {  // Changed from Data to BulkString
                 let key = String::from_utf8_lossy(field);
                 let val = String::from_utf8_lossy(value);
 

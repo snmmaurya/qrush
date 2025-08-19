@@ -1,8 +1,8 @@
 [package]
 name = "qrush"
-version = "0.3.3"
+version = "0.4.0"
 edition = "2021"
-authors = ["SNM Maurya <inxmaurya@gmail.com>"]
+authors = ["SNM Maurya <sxmmaurya@gmail.com>"]
 description = "Lightweight Job Queue for Rust (Actix + Redis)"
 license = "MIT"
 repository = "https://github.com/snmmaurya/qrush"
@@ -16,7 +16,7 @@ homepage = "https://github.com/snmmaurya/qrush"
 [dependencies]
 actix-web = "4.0"
 # cluster support for redis
-redis = { version = "0.25", features = ["tokio-native-tls-comp", "cluster"] }
+redis = { version = "0.30.0", features = ["tokio-native-tls-comp", "cluster"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
