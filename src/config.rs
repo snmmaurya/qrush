@@ -1,5 +1,4 @@
 // src/config.rs
-
 use std::sync::{Arc, OnceLock};
 use crate::services::runner_service::{start_worker_pool, start_delayed_worker_pool};
 use anyhow::{anyhow, Result};
@@ -7,6 +6,9 @@ use tokio::sync::Notify;
 use tracing::info;
 use redis::{aio::MultiplexedConnection, Client}; // Use MultiplexedConnection, not Connection
 use redis::AsyncCommands;
+
+// Add this import for cron scheduler
+use crate::cron::cron_scheduler::CronScheduler;
 
 #[derive(Clone, Debug)]
 pub struct QueueConfig {
@@ -66,8 +68,14 @@ impl QueueConfig {
                 .await?;
             start_worker_pool(&queue.name, queue.concurrency).await;
         }
+        
         info!("Delayed Worker Pool Started");
         start_delayed_worker_pool().await;
+        
+        // ADD THIS: Start cron scheduler
+        info!("Cron Scheduler Started");
+        CronScheduler::start().await;
+        
         Ok(())
     }
 }

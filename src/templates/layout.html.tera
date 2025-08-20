@@ -54,7 +54,7 @@
             <a class="link text-sm" href="/qrush/metrics/extras/scheduled">Scheduled</a>
             <a class="link text-sm" href="/qrush/metrics/extras/delayed">Delayed</a>
             <a class="link text-sm" href="/qrush/metrics/extras/dead">Dead</a>
-            <a class="link text-sm" href="/qrush/metrics/extras/workers">Workers</a>
+            <a class="link text-sm" href="/qrush/metrics/extras/cron">Crons</a>
             <button id="themeToggle" class="btn" title="Toggle theme">🌓</button>
           </nav>
         </div>

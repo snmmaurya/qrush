@@ -13,6 +13,7 @@ const TEMPLATE_FILES: &[(&str, &str)] = &[
     ("delayed_jobs.html.tera", include_str!("../templates/delayed_jobs.html.tera")),
     ("summary.html.tera", include_str!("../templates/summary.html.tera")),
     ("workers.html.tera", include_str!("../templates/workers.html.tera")),
+    ("cron_jobs.html.tera", include_str!("../templates/cron_jobs.html.tera")),
     ("errors/404.html.tera", include_str!("../templates/errors/404.html.tera")),
     ("errors/500.html.tera", include_str!("../templates/errors/500.html.tera")),
 ];

@@ -5,3 +5,4 @@ pub mod registry;
 pub mod routes;
 pub mod services;
 pub mod utils;
+pub mod cron;
