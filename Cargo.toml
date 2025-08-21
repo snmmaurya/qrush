@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/snmmaurya/qrush"
 documentation = "https://docs.rs/qrush"
 readme = "README.md"
-keywords = ["actix", "redis", "job-queue", "background-jobs", "cron", "workers", "schedulers"]
+keywords = ["actix", "redis", "job-queue", "background-jobs", "cron",]
 categories = ["asynchronous", "web-programming", "concurrency", "cron-jobs"]
 homepage = "https://github.com/snmmaurya/qrush"
 

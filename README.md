@@ -93,7 +93,7 @@ impl NotifyUser {
 This sets optional Basic Auth, registers jobs, initializes queues in a background task, then waits until ready.
 
 ```rust
-// /test/src/qrushes/qrush_integrated.rs
+// /test/src/qrushes/qrush_integration.rs
 use actix_web::web;
 use std::sync::Arc;
 use tokio::sync::{Notify, OnceCell};
@@ -106,9 +106,9 @@ use crate::qrushes::crons::daily_report_job::DailyReportJob;
 
 static QRUSH_INTEGRATED_INIT: OnceCell<Arc<Notify>> = OnceCell::const_new();
 
-pub struct QrushIntegrated;
+pub struct QrushIntegration;
 
-impl QrushIntegrated {
+impl QrushIntegration {
     pub async fn initialize(basic_auth: Option<QrushBasicAuthConfig>) {
         if let Some(existing_notify) = QRUSH_INTEGRATED_INIT.get() {
             existing_notify.notified().await;
@@ -253,13 +253,13 @@ impl DailyReportJob {
 use actix_web::{web, App, HttpServer, HttpResponse, Responder, middleware::Logger};
 use dotenv::dotenv;
 use std::env;
-use crate::qrushes::qrush_integrated::QrushIntegrated;
+use crate::qrushes::qrush_integration::QrushIntegration;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    QrushIntegrated::initialize(None).await;
+    QrushIntegration::initialize(None).await;
     println!("QRush initialization complete!");
 
     let server_address = env::var("SERVER_ADDRESS")
@@ -267,7 +267,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         // Worker-specific setup per app instance
-        let qrush_worker_config = QrushIntegrated::setup_worker_sync();
+        let qrush_worker_config = QrushIntegration::setup_worker_sync();
         
         App::new()
             .app_data(web::Data::new(qrush_worker_config))
@@ -275,7 +275,7 @@ async fn main() -> std::io::Result<()> {
             // QRush metrics routes
             .service(
                 web::scope("/qrush")
-                    .configure(QrushIntegrated::configure_routes)
+                    .configure(QrushIntegration::configure_routes)
             )
     })
     .bind(server_address)?
