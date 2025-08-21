@@ -9,7 +9,7 @@ repository = "https://github.com/snmmaurya/qrush"
 documentation = "https://docs.rs/qrush"
 readme = "README.md"
 keywords = ["actix", "redis", "job-queue", "background-jobs", "cron",]
-categories = ["asynchronous", "web-programming", "concurrency", "cron-jobs"]
+categories = ["asynchronous", "web-programming", "concurrency"]
 homepage = "https://github.com/snmmaurya/qrush"
 
 [[bin]]
