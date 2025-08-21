@@ -31,7 +31,7 @@
   </div>
   <div class="kpi">
     <div class="kpi-title">Scheduler</div>
-    <div class="kpi-value text-blue-600">🟢 Running</div>
+    <div class="kpi-value text-blue-600">Running</div>
   </div>
 </div>
 
@@ -40,71 +40,102 @@
   <table class="table">
     <thead class="bg-slate-50/60 dark:bg-slate-900/30">
       <tr>
-        <th class="th">ID</th>
         <th class="th">Name</th>
         <th class="th">Queue</th>
-        <th class="th">Schedule</th>
-        <th class="th">Status</th>
-        <th class="th">Last Run</th>
         <th class="th">Next Run</th>
         <th class="th">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for job in cron_jobs %}
-      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-900/30">
-        <td class="td font-mono text-xs">{{ job.id }}</td>
+      <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-900/30 cursor-pointer" onclick="toggleRow('{{ job.id }}')">
         <td class="td font-medium">{{ job.name }}</td>
         <td class="td">
           <span class="chip-sky">{{ job.queue }}</span>
         </td>
-        <td class="td font-mono text-xs">{{ job.cron_expression }}</td>
         <td class="td">
-          {% if job.enabled %}
-            <span class="chip-green">Enabled</span>
-          {% else %}
-            <span class="chip-red">Disabled</span>
-          {% endif %}
+          <time class="text-sm font-medium">{{ job.next_run | date(format="%b %d, %Y %H:%M:%S UTC") }}</time>
         </td>
-        <td class="td">
-          {% if job.last_run %}
-            <time class="text-xs">{{ job.last_run }}</time>
-          {% else %}
-            <span class="text-gray-400">Never</span>
-          {% endif %}
-        </td>
-        <td class="td">
-          <time class="text-xs font-medium">{{ job.next_run }}</time>
-        </td>
-        <td class="td">
+        <td class="td" onclick="event.stopPropagation()">
           <div class="flex gap-2">
             {% if job.enabled %}
               <button onclick="cronAction('toggle', '{{ job.id }}', false)" 
                       class="btn text-xs" title="Disable">
-                ⏸️ Pause
+                Pause
               </button>
             {% else %}
               <button onclick="cronAction('toggle', '{{ job.id }}', true)" 
                       class="btn text-xs" title="Enable">
-                ▶️ Enable
+                Enable
               </button>
             {% endif %}
             
             <button onclick="runNow('{{ job.id }}')" 
                     class="btn text-xs" title="Run Now">
-              🚀 Run
+              Run
             </button>
             
             <button onclick="cronAction('delete', '{{ job.id }}')" 
                     class="btn-danger text-xs" title="Delete">
-              🗑️
+              Delete
             </button>
+          </div>
+        </td>
+      </tr>
+      <!-- Expandable details row -->
+      <tr id="details-{{ job.id }}" class="hidden bg-slate-25 dark:bg-slate-900/20">
+        <td colspan="4" class="td p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">ID:</span>
+              <span class="font-mono text-xs ml-2">{{ job.id }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Name:</span>
+              <span class="ml-2">{{ job.name }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Queue:</span>
+              <span class="ml-2">{{ job.queue }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Cron Expression:</span>
+              <span class="font-mono text-xs ml-2">{{ job.cron_expression }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Status:</span>
+              {% if job.enabled %}
+                <span class="chip-green ml-2">Enabled</span>
+              {% else %}
+                <span class="chip-red ml-2">Disabled</span>
+              {% endif %}
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Timezone:</span>
+              <span class="ml-2">{{ job.timezone | default(value="UTC") }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Created At:</span>
+              <span class="ml-2">{{ job.created_at | date(format="%b %d, %Y %H:%M:%S UTC") }}</span>
+            </div>
+            <div>
+              <span class="font-medium text-slate-600 dark:text-slate-400">Last Run:</span>
+              {% if job.last_run %}
+                <span class="ml-2">{{ job.last_run | date(format="%b %d, %Y %H:%M:%S UTC") }}</span>
+              {% else %}
+                <span class="text-gray-400 ml-2">Never</span>
+              {% endif %}
+            </div>
+            <div class="md:col-span-2">
+              <span class="font-medium text-slate-600 dark:text-slate-400">Job Payload:</span>
+              <pre class="mt-2 bg-gray-100 dark:bg-gray-800 p-3 rounded text-xs overflow-auto max-h-32">{{ job.payload | default(value="{}") }}</pre>
+            </div>
           </div>
         </td>
       </tr>
       {% else %}
       <tr>
-        <td class="td text-center py-8" colspan="8">
+        <td class="td text-center py-8" colspan="4">
           <div class="text-gray-500">
             <div class="text-4xl mb-2">⏰</div>
             <div class="font-medium">No cron jobs configured</div>
@@ -210,6 +241,12 @@
 </div>
 
 <script>
+// Toggle expandable row
+function toggleRow(jobId) {
+  const detailsRow = document.getElementById(`details-${jobId}`);
+  detailsRow.classList.toggle('hidden');
+}
+
 // Cron job actions
 async function cronAction(action, jobId, enabled = null) {
   const payload = { action, job_id: jobId };

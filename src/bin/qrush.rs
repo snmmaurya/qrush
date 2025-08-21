@@ -1,10 +1,6 @@
 // src/bin/qrush.rs
-use clap::{Arg, Command, ArgMatches};
-use redis::AsyncCommands;
-use serde_json::json;
+use clap::{Arg, Command};
 use std::process;
-use tokio::signal;
-use chrono::{DateTime, Utc};
 use anyhow::Result;
 
 mod commands;

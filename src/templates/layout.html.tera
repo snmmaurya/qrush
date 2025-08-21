@@ -51,14 +51,13 @@
           <nav class="ml-auto flex items-center gap-4 pr-3">
             <a class="link text-sm" href="/qrush/metrics">Queues</a>
             <a class="link text-sm" href="/qrush/metrics/extras/summary">Summary</a>
-            <a class="link text-sm" href="/qrush/metrics/extras/scheduled">Scheduled</a>
             <a class="link text-sm" href="/qrush/metrics/extras/delayed">Delayed</a>
             <a class="link text-sm" href="/qrush/metrics/extras/dead">Dead</a>
             <a class="link text-sm" href="/qrush/metrics/extras/cron">Crons</a>
             <button id="themeToggle" class="btn" title="Toggle theme">🌓</button>
           </nav>
         </div>
-      </div>. 
+      </div>
     </div>
 
     <main class="container-px mx-auto max-w-7xl py-6">

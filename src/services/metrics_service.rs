@@ -31,13 +31,28 @@ pub async fn render_metrics(query: web::Query<MetricsQuery>) -> impl Responder {
         Err(_) => return HttpResponse::InternalServerError().body("Redis error"),
     };
 
-    // Fetch all queues
-    let mut queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
-
+    // Fetch queues with jobs
+    let active_queues: Vec<String> = conn.smembers("snm:queues").await.unwrap_or_default();
+    
+    // Get configured queues from Redis config keys
+    let config_keys: Vec<String> = conn.keys("snm:queue:config:*").await.unwrap_or_default();
+    let configured_queues: Vec<String> = config_keys
+        .into_iter()
+        .filter_map(|key| key.strip_prefix("snm:queue:config:").map(String::from))
+        .collect();
+    
+    // Merge and deduplicate queues (configured queues take priority)
+    let mut all_queues = configured_queues;
+    for queue in active_queues {
+        if !all_queues.contains(&queue) {
+            all_queues.push(queue);
+        }
+    }
+    
     // Apply search filter
     if let Some(search) = &query.search {
         let search_lower = search.to_lowercase();
-        queues = queues
+        all_queues = all_queues
             .into_iter()
             .filter(|q| q.to_lowercase().contains(&search_lower))
             .collect();
@@ -48,11 +63,11 @@ pub async fn render_metrics(query: web::Query<MetricsQuery>) -> impl Responder {
         page: query.page,
         limit: query.limit,
     };
-    let pagination = pagination_query.into_pagination(queues.len());
+    let pagination = pagination_query.into_pagination(all_queues.len());
 
     // Paginate queues
     let (paginated_queues, pagination) =
-        paginate_jobs(queues, pagination.page, pagination.limit).await;
+        paginate_jobs(all_queues, pagination.page, pagination.limit).await;
 
     // Per-queue detailed stats
     let mut queue_infos = vec![];
@@ -96,6 +111,11 @@ pub async fn render_metrics(query: web::Query<MetricsQuery>) -> impl Responder {
         "failed_jobs": total_failed,
         "retry_jobs": total_retry,
         "pending_jobs": total_pending,
+    }));
+
+    // Fix query object structure for template
+    ctx.insert("query", &json!({
+        "search": query.search.clone().unwrap_or_default()
     }));
 
     ctx.insert("page", &json!({

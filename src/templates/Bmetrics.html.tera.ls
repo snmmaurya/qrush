@@ -15,12 +15,6 @@
         <div class="text-sm text-white bg-red-600 px-3 py-1 rounded-lg">
           Failed Jobs: <strong>{{ stats.failed_jobs }}</strong>
         </div>
-        <div class="text-sm text-white bg-yellow-600 px-3 py-1 rounded-lg">
-          Retry Jobs: <strong>{{ stats.retry_jobs }}</strong>
-        </div>
-        <div class="text-sm text-white bg-blue-600 px-3 py-1 rounded-lg">
-          Pending Jobs: <strong>{{ stats.pending_jobs }}</strong>
-        </div>
       </div>
 
       <form method="GET" class="flex gap-2 items-center">
@@ -57,7 +51,7 @@
               <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-100">
                 <td class="px-4 py-2 font-mono">{{ queue.name }}</td>
                 <td class="px-4 py-2">{{ queue.pending }}</td>
-                <td class="px-4 py-2 text-yellow-600 dark:text-yellow-400">{{ queue.retry }}</td>
+                <td class="px-4 py-2">{{ queue.retry }}</td>
                 <td class="px-4 py-2 text-green-600 dark:text-green-400">{{ queue.success }}</td>
                 <td class="px-4 py-2 text-red-600 dark:text-red-400">{{ queue.failed }}</td>
                 <td class="px-4 py-2">

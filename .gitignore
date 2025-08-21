@@ -3,3 +3,4 @@ Cargo.lock
 .DS_Store
 src/.DS_Store
 src/templates/.DS_Store
+X-*

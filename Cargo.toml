@@ -1,17 +1,20 @@
 [package]
 name = "qrush"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["SNM Maurya <sxmmaurya@gmail.com>"]
-description = "Lightweight Job Queue for Rust (Actix + Redis)"
+description = "Lightweight Job Queue and Task Scheduler for Rust (Actix + Redis + Cron)"
 license = "MIT"
 repository = "https://github.com/snmmaurya/qrush"
 documentation = "https://docs.rs/qrush"
 readme = "README.md"
-keywords = ["actix", "redis", "job-queue", "background-jobs"]
-categories = ["asynchronous", "web-programming", "concurrency"]
+keywords = ["actix", "redis", "job-queue", "background-jobs", "cron", "workers", "schedulers"]
+categories = ["asynchronous", "web-programming", "concurrency", "cron-jobs"]
 homepage = "https://github.com/snmmaurya/qrush"
 
+[[bin]]
+name = "qrush"
+path = "src/bin/qrush.rs"
 
 [dependencies]
 actix-web = "4.0"
@@ -32,6 +35,11 @@ base64 = "0.22.1"
 nanoid = "0.4"
 csv = "1.3.1"
 
+# CLI Dependencies
+clap = { version = "4.0", features = ["derive"] }
+colored = "2.0"
+gethostname = "0.4"
+futures-util = "0.3.31"
 
 [lib]
 path = "src/lib.rs"
